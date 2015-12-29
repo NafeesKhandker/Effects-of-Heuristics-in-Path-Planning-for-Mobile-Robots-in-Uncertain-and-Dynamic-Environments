@@ -379,6 +379,265 @@ vector<Node*> Initialization(void);
 int indexOf(vector<Node*>, Node*);
 void AstarAlgo(void);
 
+class Graph
+{
+
+    public:
+
+    Graph(vector<Node*> points)
+    {
+        // Initialize each cell as infinity
+        for(int i = 0; i < points.size(); i++)
+        {
+            for(int j = 0; j < points.size(); j++)
+            {
+                distMat[i][j] = numeric_limits<double>::max();
+                distMat[j][i] = numeric_limits<double>::max();
+            }
+        }
+
+//
+//        // Connect the nodes by level
+//        for(int i = 0; i < points.size(); i++)
+//        {
+//            Node* node1 = points.at(i);
+//
+//            double testNext = node1->x + inc;
+//
+//            for(int j = 0; j < points.size(); j++)
+//            {
+//                Node* node2 = points.at(j);
+//
+//                if(node2->x == testNext)
+//                {
+//                    double distMeasure = EuclidianDist(node1, node2);
+//                    distMat[i][j] = distMeasure;
+//                    distMat[j][i] = distMeasure;
+//                }
+//            }
+//        }
+
+        // Connect all nodes
+        for(int i = 0; i < points.size(); i++)
+        {
+            Node* node1 = points.at(i);
+
+            for(int j = 0; j < points.size(); j++)
+            {
+                Node* node2 = points.at(j);
+
+                if(i != j)
+                {
+                    double distMeasure = EuclidianDist(node1, node2);
+                    distMat[i][j] = distMeasure;
+                    distMat[j][i] = distMeasure;
+                }
+            }
+        }
+        //
+        //
+        //
+    }
+};
+
+double EuclidianDist(Node* node1, Node* node2)
+{
+    double distance = 0.0;
+    return distance = sqrt(pow((node1->x - node2->x), 2) + pow((node1->y - node2->y), 2));
+}
+
+vector<Node*> Initialization()
+{
+    vector<Node*> points;
+
+    srand (time(NULL));
+
+    Node *start = new Node(-6.0, 0.0);
+    Node *goal = new Node(6.0, 0.0);
+    double distStart2Goal = EuclidianDist(start, goal);
+    double noOfSegment = 3;
+    inc = distStart2Goal / noOfSegment;
+    double x = start->x;
+
+    points.push_back(start);
+
+    for(int i = 0; i < noOfSegment - 1; i++)
+    {
+        x = x + inc;
+        int r = rand() % 4 + 1;
+
+        for(int j = 0; j < r; j++)
+        {
+            double y = -6.0 + ((double)rand() / ( RAND_MAX / (6.00- (-6.00)) ) );
+            //cout << x << " " << y << endl;
+            Node *point = new Node(x, y);
+            points.push_back(point);
+        }
+
+    }
+
+    points.push_back(goal);
+
+    return points;
+}
+
+
+int indexOf(vector<Node*> container, Node* node)
+{
+    for(int i = 0; i < container.size(); i++)
+    {
+        if(container.at(i) == node)
+            return i;
+    }
+    return -1;
+}
+
+void AstarAlgo()
+{
+    vector<Node*> points;
+    //double dist[points.size()][points.size()];
+
+    //Generate and initialize all points
+    points = Initialization();
+
+    //Take the start and goal node
+    Node* node_start = points.at(0);
+    Node* node_goal = points.at(points.size()-1);
+
+    //Print start and goal points
+    cout << "Start point is: (" << node_start->x << "," << node_start->y << ")" << endl << "Goal point is : (" << node_goal->x << "," << node_goal->y << ")" << endl;
+
+    //Print all points
+    cout << endl << "All points are : " << endl;
+    for(int i = 0; i < points.size(); i++)
+    {
+        Node* p = points.at(i);
+        cout << "(" << p->x << "," << p->y << ")";
+    }
+
+    //Create graph and connect the edges
+    Graph *graph = new Graph(points);
+
+    //Show the distance matrix
+    cout << endl << endl << "Distance Matrix :" << endl;
+    for(int i = 0; i < points.size(); i++)
+    {
+        for(int j = 0; j < points.size(); j++)
+        {
+            cout << distMat[i][j] << " ";
+        }
+        cout << endl;
+    }
+
+    //Main process starts
+    vector<Node*> open;
+    vector<Node*> closed;
+
+    open.push_back(node_start);
+
+    node_start->Gn = 0;
+    node_start->Hn = EuclidianDist(node_start, node_goal);
+
+    //double node_start_Fn = node_start.Gn + node_start.Hn;
+
+    while(!open.empty())
+    {
+        Node* node_current;
+        int min_index = 0;
+        double min_Fn = numeric_limits<double>::max();
+
+        for(int i = 0; i < open.size(); i++)
+        {
+            Node* p = open.at(i);
+            if((p->Gn + p->Hn) < min_Fn)
+            {
+                min_Fn = p->Gn + p->Hn;
+                min_index = i;
+            }
+        }
+
+        node_current = open.at(min_index);
+        open.erase(open.begin()+min_index);
+
+
+        if(node_current == node_goal)
+        {
+            node_goal->parent = node_current->parent;
+            break;
+        }
+
+        vector<Node*> successors = node_current->getSuccessors(points);
+
+
+
+        //For each successor nodes perform
+        for(int i = 0; i < successors.size(); i++)
+        {
+            Node* node_successor = successors.at(i);
+
+            double successor_current_w = EuclidianDist(node_current, node_successor);
+            double successor_current_cost = node_current->Gn + successor_current_w;
+
+            int oFound = indexOf(open, node_successor);
+            int cFound = indexOf(closed, node_successor);
+
+            if(oFound > -1)
+            {
+                if(node_successor->Gn <= successor_current_cost)
+                    continue;
+            }
+            else if(cFound > -1)
+            {
+                 if(node_successor->Gn <= successor_current_cost)
+                    continue;
+
+                 open.push_back(node_successor);
+                 int index = indexOf(closed, node_successor);
+                 closed.erase(closed.begin()+index);
+
+            }
+            else
+            {
+                //Add node_successor to the OPEN list
+                open.push_back(node_successor);
+
+				//Set h(node_successor) to be the heuristic distance to node_goal
+                node_successor->Hn = EuclidianDist(node_successor, node_goal);
+            }
+            //Set g(node_successor) = successor_current_cost
+            node_successor->Gn = successor_current_cost;
+
+			//Set the parent of node_successor to node_current
+			node_successor->parent = node_current;
+        }
+
+        //Add node_current to the CLOSED list
+        closed.push_back(node_current);
+
+    }
+
+    cout << "\nPath is : " << endl;
+
+    Node* p = node_goal;
+    stack<Node*> path;
+
+    while(p != NULL)
+    {
+        path.push(p);
+        p = p->parent;
+    }
+
+    while(!path.empty())
+    {
+        Node* node = path.top();
+        path.pop();
+        cout << "(" << node->x << "," << node->y << ")";
+    }
+
+    cout<<endl;
+
+}
+
 int main(int argc, char *argv[])
 {
 	/*need to do this line in c++ only*/
