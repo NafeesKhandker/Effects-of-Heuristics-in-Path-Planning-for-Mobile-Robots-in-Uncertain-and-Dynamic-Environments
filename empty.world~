@@ -33,7 +33,7 @@ define orange model
 (
 	# this is a picture of a black circle
 	bitmap "circle.png"
-	size [0.5 0.5 0.5]
+	size [0.5 1 0.5]
 	color "orange"
 )
 
@@ -41,7 +41,7 @@ define black model
 (
 	# this is a picture of a black circle
 	bitmap "rectangle.png"
-	size [5.5 1.0 .5]
+	size [5.5 .5 .5]
 	color "black"
 )
 

@@ -24,6 +24,10 @@ using namespace std;
 
 static double inc = 0;
 static double distMat[1000][1000];
+PlayerClient robot("localhost", 6665);
+Position2dProxy p2dProxy(&robot, 0);
+RangerProxy sonarProxy(&robot, 0);
+SimulationProxy simProxy(&robot, 0);
 
 struct Item
 {
@@ -32,11 +36,11 @@ struct Item
       double y;
 }typedef item_t;
 
-struct milestones
+/*struct milestones
 {
 	double x;
 	double y;
-};
+};*/
 
 double fRand(double fMin, double fMax)
 {
@@ -377,7 +381,7 @@ class Node
 double EuclidianDist(Node*, Node*);
 vector<Node*> Initialization(void);
 int indexOf(vector<Node*>, Node*);
-stack<Node*> AstarAlgo(void);
+vector<Node*> AstarAlgo(void);
 
 
 class Graph
@@ -397,28 +401,29 @@ class Graph
             }
         }
 
-//
-//        // Connect the nodes by level
-//        for(int i = 0; i < points.size(); i++)
-//        {
-//            Node* node1 = points.at(i);
-//
-//            double testNext = node1->x + inc;
-//
-//            for(int j = 0; j < points.size(); j++)
-//            {
-//                Node* node2 = points.at(j);
-//
-//                if(node2->x == testNext)
-//                {
-//                    double distMeasure = EuclidianDist(node1, node2);
-//                    distMat[i][j] = distMeasure;
-//                    distMat[j][i] = distMeasure;
-//                }
-//            }
-//        }
 
-        // Connect all nodes
+/*
+        // Connect the nodes by level
+        for(int i = 0; i < points.size(); i++)
+        {
+            Node* node1 = points.at(i);
+
+            double testNext = node1->x + inc;
+
+            for(int j = 0; j < points.size(); j++)
+            {
+                Node* node2 = points.at(j);
+
+                if(node2->x == testNext)
+                {
+                    double distMeasure = EuclidianDist(node1, node2);
+                    distMat[i][j] = distMeasure;
+                    distMat[j][i] = distMeasure;
+                }
+            }
+        }*/
+
+       // Connect all nodes
         for(int i = 0; i < points.size(); i++)
         {
             Node* node1 = points.at(i);
@@ -452,10 +457,26 @@ vector<Node*> Initialization()
     vector<Node*> points;
 
     srand (time(NULL));
+    robot.Read();
 
-    Node *start = new Node(-6.0, 0.0);
-    Node *goal = new Node(6.0, 0.0);
-    double distStart2Goal = EuclidianDist(start, goal);
+    Node *start = new Node(p2dProxy.GetXPos(), p2dProxy.GetYPos());
+    Node *goal = new Node(6.0, 6.0);
+
+
+    //Random Points
+    points.push_back(start);
+    double noOfPoints = 10;
+
+    for(int i = 0; i < noOfPoints; i++)
+    {
+    	double x = -6.0 + ((double)rand() / (RAND_MAX / (6.00- (-6.00))));
+    	double y = -6.0 + ((double)rand() / (RAND_MAX / (6.00- (-6.00))));
+    	Node *point = new Node(x, y);
+    	points.push_back(point);
+    }
+    points.push_back(goal);
+
+    /*double distStart2Goal = EuclidianDist(start, goal);
     double noOfSegment = 3;
     inc = distStart2Goal / noOfSegment;
     double x = start->x;
@@ -477,7 +498,7 @@ vector<Node*> Initialization()
 
     }
 
-    points.push_back(goal);
+    points.push_back(goal);*/
 
     return points;
 }
@@ -493,7 +514,7 @@ int indexOf(vector<Node*> container, Node* node)
     return -1;
 }
 
-stack<Node*> AstarAlgo()
+vector<Node*> AstarAlgo()
 {
     vector<Node*> points;
     //double dist[points.size()][points.size()];
@@ -618,12 +639,21 @@ stack<Node*> AstarAlgo()
     }
 
     Node* p = node_goal;
-    stack<Node*> path;
+    stack<Node*> stack;
+    vector<Node*> path;
 
     while(p != NULL)
     {
-        path.push(p);
+        stack.push(p);
         p = p->parent;
+    }
+
+    while(!stack.empty())
+    {
+    		Node* node = stack.top();
+    	    stack.pop();
+    	    path.push_back(node);
+            //cout << "(" << node->x << "," << node->y << ")";
     }
 
     return path;
@@ -636,23 +666,20 @@ int main(int argc, char *argv[])
 {
 	/*need to do this line in c++ only*/
 	using namespace PlayerCc;
+	simProxy.SetPose2d("iRobo", fRand(-6.00, 6.00), fRand(-6.00, 6.00), 0);
 
-	stack<Node*> path;
-	path = AstarAlgo();
+	vector<Node*> waypoints;
+	waypoints = AstarAlgo();
 	cout << "\nPath is : " << endl;
-	while(!path.empty())
+	for(int i = 0; i < waypoints.size(); i++)
 	{
-		Node* node = path.top();
-	    path.pop();
+		Node* node = waypoints.at(i);
         cout << "(" << node->x << "," << node->y << ")";
 	}
 
 	cout<<endl;
 
-	PlayerClient robot("localhost", 6665);
-	Position2dProxy p2dProxy(&robot, 0);
-	RangerProxy sonarProxy(&robot, 0);
-	SimulationProxy simProxy(&robot, 0);
+
 
 	//BlobfinderProxy blobProxy(&robot, 0);
 	//RangerProxy laserProxy(&robot, 1);
@@ -679,9 +706,9 @@ int main(int argc, char *argv[])
 	//p2dProxy.GoTo(4,0,0);
 	//p2dProxy.SetSpeed(5, 5, 0);
 
-	vector<milestones> waypoints;
 
-	for (int i = 0; i < 5; i++)
+
+/*	for (int i = 0; i < 5; i++)
 	{
 		double x = fRand(-6.00, 6.00);
 		double y = fRand(-6.00, 6.00);
@@ -692,22 +719,13 @@ int main(int argc, char *argv[])
 
 		waypoints.push_back(ms);
 
-	}
-
-	for (int i = 0; i < waypoints.size(); i++)
-	{
-
-		std::cout << waypoints.at(i).x << " " << waypoints.at(i).y << "\n";
-	}
-
+	}*/
 	printf("\n");
 
 	int i = 0;
 	int j = 0;
-	milestones p;
+	Node* p;
 	double startTime = GetTickCount();
-
-
 	while (true)
 	{
 		double currentTime = GetTickCount() - startTime;
@@ -732,27 +750,24 @@ int main(int argc, char *argv[])
 			startTime = GetTickCount();
 		}
 
-
-
-
 		if (i == 0)
 		{
 			//j = 0;
 			p = waypoints.at(j);
-			p2dProxy.GoTo(p.x, p.y, 0);
+			p2dProxy.GoTo(p->x, p->y, 0);
 			i++;
 		}
 
-		if ((isGoal(p.x, p.y, p2dProxy.GetXPos(), p2dProxy.GetYPos())))
+		if ((isGoal(p->x, p->y, p2dProxy.GetXPos(), p2dProxy.GetYPos())))
 		{
-			printf("Checkpoint %d --> x: %lf y: %lf completed... \n", j + 1,
-					p.x, p.y);
+			printf("Checkpoint %d --> x: %lf y: %lf completed... \n", j + 1, p->x, p->y);
 			j++;
 			if (j >= waypoints.size())
 			{
 				printf("\nGoal Reached\n");
 				break;
-			} else
+			}
+			else
 				i = 0;
 
 			//p2dProxy.ResetOdometry();
@@ -763,7 +778,7 @@ int main(int argc, char *argv[])
 		if((sonarProxy[2] < 1.000) || (sonarProxy[3] < 1.000) || (sonarProxy[4] < 1.00) || sonarProxy[5] < 1.00)
 		{
 			printf("\nObstacle detected\n");
-			break;
+			robot.Stop();
 		}
 
 
