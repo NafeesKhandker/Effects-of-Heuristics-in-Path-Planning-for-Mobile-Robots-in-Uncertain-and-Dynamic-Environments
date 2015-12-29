@@ -377,7 +377,8 @@ class Node
 double EuclidianDist(Node*, Node*);
 vector<Node*> Initialization(void);
 int indexOf(vector<Node*>, Node*);
-void AstarAlgo(void);
+stack<Node*> AstarAlgo(void);
+
 
 class Graph
 {
@@ -492,7 +493,7 @@ int indexOf(vector<Node*> container, Node* node)
     return -1;
 }
 
-void AstarAlgo()
+stack<Node*> AstarAlgo()
 {
     vector<Node*> points;
     //double dist[points.size()][points.size()];
@@ -616,8 +617,6 @@ void AstarAlgo()
 
     }
 
-    cout << "\nPath is : " << endl;
-
     Node* p = node_goal;
     stack<Node*> path;
 
@@ -627,21 +626,28 @@ void AstarAlgo()
         p = p->parent;
     }
 
-    while(!path.empty())
-    {
-        Node* node = path.top();
-        path.pop();
-        cout << "(" << node->x << "," << node->y << ")";
-    }
-
-    cout<<endl;
+    return path;
 
 }
+
+
 
 int main(int argc, char *argv[])
 {
 	/*need to do this line in c++ only*/
 	using namespace PlayerCc;
+
+	stack<Node*> path;
+	path = AstarAlgo();
+	cout << "\nPath is : " << endl;
+	while(!path.empty())
+	{
+		Node* node = path.top();
+	    path.pop();
+        cout << "(" << node->x << "," << node->y << ")";
+	}
+
+	cout<<endl;
 
 	PlayerClient robot("localhost", 6665);
 	Position2dProxy p2dProxy(&robot, 0);
