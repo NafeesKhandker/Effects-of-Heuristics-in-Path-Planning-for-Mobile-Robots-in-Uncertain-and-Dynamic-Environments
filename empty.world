@@ -41,7 +41,7 @@ define black model
 (
 	# this is a picture of a black circle
 	bitmap "rectangle.png"
-	size [5.5 1.0 .5]
+	size [.5 .5 .5]
 	color "black"
 )
 
@@ -51,3 +51,7 @@ orange(name "orange3" pose [-3 -5 0 0])
 orange(name "orange4" pose [-4 -5 0 0])
 
 black(name "black1" pose [0 0 0 0])
+black(name "black2" pose [-5 3 0 0])
+black(name "black3" pose [-5 -5 0 0])
+black(name "black4" pose [3 6 0 0])
+black(name "black2" pose [3 -4 0 0])

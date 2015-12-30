@@ -28,6 +28,7 @@ PlayerClient robot("localhost", 6665);
 Position2dProxy p2dProxy(&robot, 0);
 RangerProxy sonarProxy(&robot, 0);
 SimulationProxy simProxy(&robot, 0);
+int noOfPoints = 50;
 
 struct Item
 {
@@ -379,17 +380,17 @@ class Node
 };
 
 double EuclidianDist(Node*, Node*);
-vector<Node*> Initialization(void);
+void Initialization(void);
 int indexOf(vector<Node*>, Node*);
 vector<Node*> AstarAlgo(void);
-
+vector<Node*> points;
 
 class Graph
 {
 
     public:
 
-    Graph(vector<Node*> points)
+    Graph()
     {
         // Initialize each cell as infinity
         for(int i = 0; i < points.size(); i++)
@@ -452,20 +453,17 @@ double EuclidianDist(Node* node1, Node* node2)
     return distance = sqrt(pow((node1->x - node2->x), 2) + pow((node1->y - node2->y), 2));
 }
 
-vector<Node*> Initialization()
+void Initialization()
 {
-    vector<Node*> points;
-
     srand (time(NULL));
     robot.Read();
 
     Node *start = new Node(p2dProxy.GetXPos(), p2dProxy.GetYPos());
-    Node *goal = new Node(6.0, 6.0);
+    Node *goal = new Node(5.0, 0.0);
 
 
     //Random Points
     points.push_back(start);
-    double noOfPoints = 10;
 
     for(int i = 0; i < noOfPoints; i++)
     {
@@ -499,8 +497,6 @@ vector<Node*> Initialization()
     }
 
     points.push_back(goal);*/
-
-    return points;
 }
 
 
@@ -516,11 +512,6 @@ int indexOf(vector<Node*> container, Node* node)
 
 vector<Node*> AstarAlgo()
 {
-    vector<Node*> points;
-    //double dist[points.size()][points.size()];
-
-    //Generate and initialize all points
-    points = Initialization();
 
     //Take the start and goal node
     Node* node_start = points.at(0);
@@ -536,9 +527,6 @@ vector<Node*> AstarAlgo()
         Node* p = points.at(i);
         cout << "(" << p->x << "," << p->y << ")";
     }
-
-    //Create graph and connect the edges
-    Graph *graph = new Graph(points);
 
     //Show the distance matrix
     cout << endl << endl << "Distance Matrix :" << endl;
@@ -672,8 +660,18 @@ void printPath(vector<Node*> waypoints)
 	cout<<endl;
 }
 
-void DynamicPlanning(item_t *items)
+void DynamicPlanning(item_t *items, bool flag)
 {
+
+	if(flag)
+	{
+		//Generate and initialize all points
+		Initialization();
+
+		//Create graph and connect the edges
+		Graph *graph = new Graph();
+	}
+
 	item_t *itemList = items;
 
 	vector<Node*> waypoints;
@@ -681,9 +679,10 @@ void DynamicPlanning(item_t *items)
 
 	printPath(waypoints);
 
+	Node* nodeGoal = points.at(points.size()-1);
 
 	int i = 0;
-	int j = 0;
+	int j = 1;
 	Node* p;
 	double startTime = GetTickCount();
 
@@ -724,33 +723,49 @@ void DynamicPlanning(item_t *items)
 		if ((isGoal(p->x, p->y, p2dProxy.GetXPos(), p2dProxy.GetYPos())))
 		{
 			printf("Checkpoint--> (x: %lf y: %lf) completed... \n", p->x, p->y);
-			j++;
-			if (j >= waypoints.size())
+
+			if (isGoal(nodeGoal->x, nodeGoal->y, p2dProxy.GetXPos(), p2dProxy.GetYPos()))
 			{
 				printf("\nGoal Reached\n");
 				break;
 			}
 			else
+			{
 				i = 0;
-
+				j++;
+			}
 		}
 
-		if((sonarProxy[2] < 1.000) || (sonarProxy[3] < 1.000) || (sonarProxy[4] < 1.00) || (sonarProxy[5] < 1.00))
+		if((sonarProxy[2] < 1.5) || (sonarProxy[3] < 1.5) || (sonarProxy[4] < 1.5) || (sonarProxy[5] < 1.5))
 		{
 			printf("\nObstacle detected\n");
+			distMat[0][noOfPoints+1] = numeric_limits<double>::max();
+			distMat[noOfPoints+1][0] = numeric_limits<double>::max();
 
+		    waypoints = AstarAlgo();
+
+			printPath(waypoints);
+			i = 0;
+			j = 1;
 		}
 
 
 	}
 
-	DynamicPlanning(itemList);
+
+	/*if (!isGoal(nodeGoal->x, nodeGoal->y, p2dProxy.GetXPos(), p2dProxy.GetYPos()))
+	{
+		distMat[0][noOfPoints+1] = numeric_limits<double>::max();
+		distMat[noOfPoints+1][0] = numeric_limits<double>::max();
+		DynamicPlanning(itemList);
+	}*/
 }
 
 int main(int argc, char *argv[])
 {
 	/*need to do this line in c++ only*/
 	//using namespace PlayerCc;
+	srand(time(NULL));
 	simProxy.SetPose2d("iRobo", fRand(-6.00, 6.00), fRand(-6.00, 6.00), 0);
 
 
@@ -764,7 +779,7 @@ int main(int argc, char *argv[])
 
 	RefreshItemList(itemList, simProxy);
 
-	srand(time(NULL));
+
 
 	//enable motors
 	p2dProxy.SetMotorEnable(1);
@@ -797,7 +812,7 @@ int main(int argc, char *argv[])
 	}*/
 	printf("\n");
 
-	DynamicPlanning(itemList);
+	DynamicPlanning(itemList, true);
 
 }
 
