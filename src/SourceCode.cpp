@@ -558,7 +558,7 @@ vector<Node*> AstarAlgo()
     open.push_back(node_start);
 
     node_start->Gn = 0;
-    node_start->Hn = EuclidianDist(node_start, node_goal);
+    node_start->Hn = 0; //EuclidianDist(node_start, node_goal);
 
     //double node_start_Fn = node_start.Gn + node_start.Hn;
 
@@ -624,7 +624,7 @@ vector<Node*> AstarAlgo()
                 open.push_back(node_successor);
 
 				//Set h(node_successor) to be the heuristic distance to node_goal
-                node_successor->Hn = EuclidianDist(node_successor, node_goal);
+                node_successor->Hn = 0;//EuclidianDist(node_successor, node_goal);
             }
             //Set g(node_successor) = successor_current_cost
             node_successor->Gn = successor_current_cost;
@@ -660,24 +660,99 @@ vector<Node*> AstarAlgo()
 
 }
 
-
-
-int main(int argc, char *argv[])
+void printPath(vector<Node*> waypoints)
 {
-	/*need to do this line in c++ only*/
-	using namespace PlayerCc;
-	simProxy.SetPose2d("iRobo", fRand(-6.00, 6.00), fRand(-6.00, 6.00), 0);
-
-	vector<Node*> waypoints;
-	waypoints = AstarAlgo();
 	cout << "\nPath is : " << endl;
 	for(int i = 0; i < waypoints.size(); i++)
 	{
 		Node* node = waypoints.at(i);
-        cout << "(" << node->x << "," << node->y << ")";
+	       cout << "(" << node->x << "," << node->y << ")";
 	}
 
 	cout<<endl;
+}
+
+void DynamicPlanning(item_t *items)
+{
+	item_t *itemList = items;
+
+	vector<Node*> waypoints;
+	waypoints = AstarAlgo();
+
+	printPath(waypoints);
+
+
+	int i = 0;
+	int j = 0;
+	Node* p;
+	double startTime = GetTickCount();
+
+	while (true)
+	{
+		double currentTime = GetTickCount() - startTime;
+		robot.Read();
+
+		if( currentTime >= 3000 ) //3 seconds.
+		{
+		//do
+			for(int i = 0; i < 4; i++)
+			{
+				double x = fRand(-6.00, 6.00);
+			    double y = fRand(-6.00, 6.00);
+				if(sqrt(pow((x-p2dProxy.GetXPos()),2) + pow((y-p2dProxy.GetYPos()), 2)) > 1)
+				{
+					simProxy.SetPose2d(itemList[i].name, fRand(-6.00, 6.00), fRand(-6.00, 6.00), 0);
+				}
+				else
+					printf("imposing");
+			}
+		    RefreshItemList(itemList, simProxy);
+			//Reset the timer.
+			startTime = GetTickCount();
+		}
+
+		//Main Process
+
+		if (i == 0)
+		{
+			//j = 0;
+			p = waypoints.at(j);
+			p2dProxy.GoTo(p->x, p->y, 0);
+			i++;
+		}
+
+		if ((isGoal(p->x, p->y, p2dProxy.GetXPos(), p2dProxy.GetYPos())))
+		{
+			printf("Checkpoint--> (x: %lf y: %lf) completed... \n", p->x, p->y);
+			j++;
+			if (j >= waypoints.size())
+			{
+				printf("\nGoal Reached\n");
+				break;
+			}
+			else
+				i = 0;
+
+		}
+
+		if((sonarProxy[2] < 1.000) || (sonarProxy[3] < 1.000) || (sonarProxy[4] < 1.00) || (sonarProxy[5] < 1.00))
+		{
+			printf("\nObstacle detected\n");
+
+		}
+
+
+	}
+
+	DynamicPlanning(itemList);
+}
+
+int main(int argc, char *argv[])
+{
+	/*need to do this line in c++ only*/
+	//using namespace PlayerCc;
+	simProxy.SetPose2d("iRobo", fRand(-6.00, 6.00), fRand(-6.00, 6.00), 0);
+
 
 
 
@@ -722,67 +797,8 @@ int main(int argc, char *argv[])
 	}*/
 	printf("\n");
 
-	int i = 0;
-	int j = 0;
-	Node* p;
-	double startTime = GetTickCount();
-	while (true)
-	{
-		double currentTime = GetTickCount() - startTime;
-		robot.Read();
+	DynamicPlanning(itemList);
 
-		if( currentTime >= 3000 ) //3 seconds.
-		{
-		//do
-			for(int i = 0; i < 4; i++)
-			{
-				double x = fRand(-6.00, 6.00);
-			    double y = fRand(-6.00, 6.00);
-				if(sqrt(pow((x-p2dProxy.GetXPos()),2) + pow((y-p2dProxy.GetYPos()), 2)) > 1)
-				{
-					simProxy.SetPose2d(itemList[i].name, fRand(-6.00, 6.00), fRand(-6.00, 6.00), 0);
-				}
-				else
-					printf("imposing");
-			}
-		    RefreshItemList(itemList, simProxy);
-			//Reset the timer.
-			startTime = GetTickCount();
-		}
-
-		if (i == 0)
-		{
-			//j = 0;
-			p = waypoints.at(j);
-			p2dProxy.GoTo(p->x, p->y, 0);
-			i++;
-		}
-
-		if ((isGoal(p->x, p->y, p2dProxy.GetXPos(), p2dProxy.GetYPos())))
-		{
-			printf("Checkpoint %d --> x: %lf y: %lf completed... \n", j + 1, p->x, p->y);
-			j++;
-			if (j >= waypoints.size())
-			{
-				printf("\nGoal Reached\n");
-				break;
-			}
-			else
-				i = 0;
-
-			//p2dProxy.ResetOdometry();
-			//p2dProxy.GoTo(0,4,0);
-			//j++;
-		}
-
-		if((sonarProxy[2] < 1.000) || (sonarProxy[3] < 1.000) || (sonarProxy[4] < 1.00) || sonarProxy[5] < 1.00)
-		{
-			printf("\nObstacle detected\n");
-			robot.Stop();
-		}
-
-
-	}
 }
 
 
