@@ -28,7 +28,7 @@ PlayerClient robot("localhost", 6665);
 Position2dProxy p2dProxy(&robot, 0);
 RangerProxy sonarProxy(&robot, 0);
 SimulationProxy simProxy(&robot, 0);
-int noOfPoints = 50;
+int noOfPoints = 100;
 
 struct Item
 {
@@ -202,12 +202,20 @@ double EuclidianDist(Node* node1, Node* node2)
 void Initialization()
 {
 
+	robot.Read();
+
+
     Node *start = new Node(p2dProxy.GetXPos(), p2dProxy.GetYPos());
+
+    cout << "First Node is: " << start->x << "," << start->y << endl;
+
     Node *goal = new Node(5.0, 0.0);
 
 
     //Random Points
     points.push_back(start);
+
+
 
     for(int i = 0; i < noOfPoints; i++)
     {
@@ -405,9 +413,25 @@ void printPath(vector<Node*> waypoints)
 	cout<<endl;
 }
 
+float ROT_VEL = 10;
+
+void rotateInPlace(float t, float a_mult)
+{  //t being the turn angle and a_mult to modify the turning speed
+  int tt = (unsigned int) (fabs(t)*float(1e6)/(ROT_VEL*a_mult));
+
+  for(; tt>0; tt-=1000000)
+  {
+	p2dProxy.SetSpeed(0.0, (t>0?1:-1)*ROT_VEL*a_mult);
+    usleep(std::max(std::min(1000000,tt),20000));
+  }
+  p2dProxy.SetSpeed(0.0,0.0);
+}
+
+
 void DynamicPlanning(item_t *items, bool flag)
 {
 	//srand (time(NULL));
+	vector<Node*> waypoints;
 
 	if(flag)
 	{
@@ -425,7 +449,10 @@ void DynamicPlanning(item_t *items, bool flag)
 
 	else
 	{
-		points.clear();
+		int secondIndex = indexOf(points, waypoints[1]);
+		distMat[0][secondIndex] = numeric_limits<double>::max();
+		distMat[secondIndex][0] = numeric_limits<double>::max();
+		/*points.clear();
 		Initialization();
 
 		Graph *graph = new Graph();
@@ -433,14 +460,13 @@ void DynamicPlanning(item_t *items, bool flag)
 		graph->ConnectAllNodes();
 
 		distMat[0][noOfPoints+1] = numeric_limits<double>::max();
-		distMat[noOfPoints+1][0] = numeric_limits<double>::max();
+		distMat[noOfPoints+1][0] = numeric_limits<double>::max();*/
 
-		cout << "value of start to goal (replan): "<< distMat[0][noOfPoints+1] << endl;
+		cout << "value of start to goal (replan): "<< distMat[0][secondIndex] << endl;
 	}
 
 	item_t *itemList = items;
 
-	vector<Node*> waypoints;
 	waypoints = AstarAlgo();
 
 	printPath(waypoints);
@@ -451,6 +477,8 @@ void DynamicPlanning(item_t *items, bool flag)
 	int j = 1;
 	Node* p;
 	double startTime = GetTickCount();
+
+	bool flag_avoided;
 
 	while (true)
 	{
@@ -464,9 +492,10 @@ void DynamicPlanning(item_t *items, bool flag)
 			{
 				double x = fRand(-6.00, 6.00);
 			    double y = fRand(-6.00, 6.00);
-				if(sqrt(pow((x-p2dProxy.GetXPos()),2) + pow((y-p2dProxy.GetYPos()), 2)) > 1)
+			    robot.Read();
+				if(sqrt(pow((x-p2dProxy.GetXPos()),2) + pow((y-p2dProxy.GetYPos()), 2)) > .5)
 				{
-					simProxy.SetPose2d(itemList[i].name, fRand(-6.00, 6.00), fRand(-6.00, 6.00), 0);
+					simProxy.SetPose2d(itemList[i].name, x, y, 0);
 				}
 				else
 					printf("imposing");
@@ -508,28 +537,61 @@ void DynamicPlanning(item_t *items, bool flag)
 			//distMat[0][noOfPoints+1] = numeric_limits<double>::max();
 			//distMat[noOfPoints+1][0] = numeric_limits<double>::max();
 
-		    //waypoints = AstarAlgo();
+			int secondIndex = indexOf(points, waypoints[1]);
 
-			//printPath(waypoints);
-			//i = 0;
-			//j = 1;
-			break;
+			cout<< secondIndex << endl;
+
+			distMat[0][secondIndex] = numeric_limits<double>::max();
+			distMat[secondIndex][0] = numeric_limits<double>::max();
+
+		    waypoints = AstarAlgo();
+
+			printPath(waypoints);
+			i = 0;
+			j = 1;
+			//break;
+
+			if (isGoal(nodeGoal->x, nodeGoal->y, p2dProxy.GetXPos(), p2dProxy.GetYPos()))
+			{
+				break;
+			}
+
+			continue;
+		}
+
+		flag_avoided = true;
+
+		if((flag_avoided == true) && ((sonarProxy[0] > 1) && (sonarProxy[1] > 1) && (sonarProxy[2] > 1) &&
+		(sonarProxy[3] > 1) && (sonarProxy[4] > 1) && (sonarProxy[5] > 1) && (sonarProxy[6] > 1) && (sonarProxy[7] > 1)))
+		{
+			flag_avoided = false;
+			DynamicPlanning(itemList, true);
+
+			if (isGoal(nodeGoal->x, nodeGoal->y, p2dProxy.GetXPos(), p2dProxy.GetYPos()))
+			{
+				break;
+			}
 		}
 	}
 
-	if (!isGoal(nodeGoal->x, nodeGoal->y, p2dProxy.GetXPos(), p2dProxy.GetYPos()))
+	/*if (!isGoal(nodeGoal->x, nodeGoal->y, p2dProxy.GetXPos(), p2dProxy.GetYPos()))
 	{
 		//distMat[0][noOfPoints+1] = numeric_limits<double>::max();
 		//distMat[noOfPoints+1][0] = numeric_limits<double>::max();
-		DynamicPlanning(itemList, false);
-	}
+		//DynamicPlanning(itemList, true);
+	}*/
 
 }
 
 int main(int argc, char *argv[])
 {
 	srand(time(NULL));
-	simProxy.SetPose2d("iRobo", fRand(-6.00, 6.00), fRand(-6.00, 6.00), 0);
+	double init_x = fRand(-6.00, 6.00);
+	double init_y = fRand(-6.00, 6.00);
+	cout << "robot at: (" << init_x << "," << init_y << ")"<< endl;
+
+	simProxy.SetPose2d("iRobo",init_x , init_y, 0);
+	//simProxy.SetPose2d("iRobo",-6 , -6, 0);
 
 	item_t itemList[8];
 	RefreshItemList(itemList, simProxy);
@@ -542,7 +604,7 @@ int main(int argc, char *argv[])
 	printf("\n");
 
 	DynamicPlanning(itemList, true);
-
+	//robot.Stop();
+	//rotateInPlace(90, 90);
 }
-
 
