@@ -28,7 +28,7 @@ PlayerClient robot("localhost", 6665);
 Position2dProxy p2dProxy(&robot, 0);
 RangerProxy sonarProxy(&robot, 0);
 SimulationProxy simProxy(&robot, 0);
-int noOfPoints = 100;
+int noOfPoints = 5;
 
 struct Item
 {
@@ -131,6 +131,75 @@ int indexOf(vector<Node*>, Node*);
 vector<Node*> AstarAlgo(void);
 vector<Node*> points;
 
+int minDistance(double dist[], bool sptSet[])
+{
+   // Initialize min value
+   double min = numeric_limits<double>::max(), min_index;
+
+   for (int v = 0; v < points.size(); v++)
+     if (sptSet[v] == false && dist[v] <= min)
+         min = dist[v], min_index = v;
+
+   return min_index;
+}
+
+vector<double> Dijkstra(int src)
+{
+     double dist[points.size()];     // The output array.  dist[i] will hold the shortest
+                      // distance from src to i
+
+     bool sptSet[points.size()]; // sptSet[i] will true if vertex i is included in shortest
+                     // path tree or shortest distance from src to i is finalized
+
+     // Initialize all distances as INFINITE and stpSet[] as false
+     for (int i = 0; i < points.size(); i++)
+     {
+        dist[i] = numeric_limits<double>::max(), sptSet[i] = false;
+     }
+
+     // Distance of source vertex from itself is always 0
+     dist[src] = 0;
+
+     // Find shortest path for all vertices
+     for (int count = 0; count < points.size()-1; count++)
+     {
+       // Pick the minimum distance vertex from the set of vertices not
+       // yet processed. u is always equal to src in first iteration.
+       int u = minDistance(dist, sptSet);
+
+       // Mark the picked vertex as processed
+       sptSet[u] = true;
+
+       // Update dist value of the adjacent vertices of the picked vertex.
+       for (int v = 0; v < points.size(); v++)
+       {
+         // Update dist[v] only if is not in sptSet, there is an edge from
+         // u to v, and total weight of path from src to  v through u is
+         // smaller than current value of dist[v]
+         if (!sptSet[v] && distMat[u][v] && dist[u] != numeric_limits<double>::max() && dist[u]+distMat[u][v] < dist[v])
+         {
+        	 dist[v] = dist[u] + distMat[u][v];
+         }
+
+       }
+     }
+
+     cout << "Original : " << endl;
+
+     vector<double> heuristics;
+
+     for(int i = 0; i < points.size(); i++)
+     {
+         //cout << dist[i] << " ";
+         heuristics.push_back(dist[i]);
+     }
+
+     //cout << "no Of Points: " << points.size()<< endl;
+     return heuristics;
+
+}
+
+
 class Graph
 {
 
@@ -190,6 +259,27 @@ class Graph
     	                }
     	            }
     	        }
+
+    	        //Show the distance matrix
+    	         /*   cout << endl << endl << "Distance Matrix :" << endl;
+    	            for(int i = 0; i < points.size(); i++)
+    	            {
+    	                for(int j = 0; j < points.size(); j++)
+    	                {
+    	                    cout << distMat[i][j] << " ";
+    	                }
+    	                cout << endl;
+    	            }*/
+
+    }
+    void AssignHeuristics()
+    {
+    	vector<double> heuristicsList = Dijkstra(points.size()-1);
+    	for(int i = 0; i < points.size(); i++)
+    	{
+    		cout << heuristicsList.at(i) << " ";
+    		points.at(i)->Hn = heuristicsList.at(i);
+    	}
     }
 };
 
@@ -443,6 +533,7 @@ void DynamicPlanning(item_t *items, bool flag)
 		Graph *graph = new Graph();
 		graph->initGraph();
 		graph->ConnectAllNodes();
+		graph->AssignHeuristics();
 
 		cout << "value of start to goal: "<< distMat[0][noOfPoints+1] << endl;
 	}
@@ -478,7 +569,6 @@ void DynamicPlanning(item_t *items, bool flag)
 	Node* p;
 	double startTime = GetTickCount();
 
-	bool flag_avoided;
 
 	while (true)
 	{
@@ -559,12 +649,9 @@ void DynamicPlanning(item_t *items, bool flag)
 			continue;
 		}
 
-		flag_avoided = true;
 
-		if((flag_avoided == true) && ((sonarProxy[0] > 1) && (sonarProxy[1] > 1) && (sonarProxy[2] > 1) &&
-		(sonarProxy[3] > 1) && (sonarProxy[4] > 1) && (sonarProxy[5] > 1) && (sonarProxy[6] > 1) && (sonarProxy[7] > 1)))
+		if((sonarProxy[9] < 1.5) || (sonarProxy[14] < 1.5))
 		{
-			flag_avoided = false;
 			DynamicPlanning(itemList, true);
 
 			if (isGoal(nodeGoal->x, nodeGoal->y, p2dProxy.GetXPos(), p2dProxy.GetYPos()))
@@ -604,7 +691,20 @@ int main(int argc, char *argv[])
 	printf("\n");
 
 	DynamicPlanning(itemList, true);
-	//robot.Stop();
+
+	/*points.clear();
+			//Generate and initialize all points
+	Initialization();
+
+			//Create graph and connect the edge
+	Graph *graph = new Graph();
+	graph->initGraph();
+	graph->ConnectAllNodes();
+	graph->AssignHeuristics();
+
+	cout << endl;
+	for(int i = 0; i < points.size(); i++)
+		cout << points.at(i)->Hn << " ";*/
 	//rotateInPlace(90, 90);
 }
 
