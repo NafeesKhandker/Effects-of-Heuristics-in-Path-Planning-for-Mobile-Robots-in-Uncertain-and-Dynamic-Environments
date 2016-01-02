@@ -28,7 +28,7 @@ PlayerClient robot("localhost", 6665);
 Position2dProxy p2dProxy(&robot, 0);
 RangerProxy sonarProxy(&robot, 0);
 SimulationProxy simProxy(&robot, 0);
-int noOfPoints = 5;
+int noOfPoints = 100;
 
 struct Item
 {
@@ -299,7 +299,7 @@ void Initialization()
 
     cout << "First Node is: " << start->x << "," << start->y << endl;
 
-    Node *goal = new Node(5.0, 0.0);
+    Node *goal = new Node(-4.0, 5.0);
 
 
     //Random Points
@@ -389,9 +389,9 @@ vector<Node*> AstarAlgo()
     open.push_back(node_start);
 
     node_start->Gn = 0;
-    node_start->Hn = 0; //EuclidianDist(node_start, node_goal);
+    //node_start->Hn = 0; //EuclidianDist(node_start, node_goal);
 
-    //double node_start_Fn = node_start.Gn + node_start.Hn;
+    //double node_start_Fn = node_start->Hn;
 
     while(!open.empty())
     {
@@ -455,7 +455,7 @@ vector<Node*> AstarAlgo()
                 open.push_back(node_successor);
 
 				//Set h(node_successor) to be the heuristic distance to node_goal
-                node_successor->Hn = 0;//EuclidianDist(node_successor, node_goal);
+                //node_successor->Hn = 0;//EuclidianDist(node_successor, node_goal);
             }
             //Set g(node_successor) = successor_current_cost
             node_successor->Gn = successor_current_cost;
@@ -523,6 +523,7 @@ void DynamicPlanning(item_t *items, bool flag)
 	//srand (time(NULL));
 	vector<Node*> waypoints;
 
+
 	if(flag)
 	{
 		points.clear();
@@ -535,7 +536,8 @@ void DynamicPlanning(item_t *items, bool flag)
 		graph->ConnectAllNodes();
 		graph->AssignHeuristics();
 
-		cout << "value of start to goal: "<< distMat[0][noOfPoints+1] << endl;
+		//cout << "value of start to goal: "<< distMat[0][noOfPoints+1] << endl;
+
 	}
 
 	else
@@ -569,6 +571,7 @@ void DynamicPlanning(item_t *items, bool flag)
 	Node* p;
 	double startTime = GetTickCount();
 
+	bool check = false;
 
 	while (true)
 	{
@@ -582,8 +585,8 @@ void DynamicPlanning(item_t *items, bool flag)
 			{
 				double x = fRand(-6.00, 6.00);
 			    double y = fRand(-6.00, 6.00);
-			    robot.Read();
-				if(sqrt(pow((x-p2dProxy.GetXPos()),2) + pow((y-p2dProxy.GetYPos()), 2)) > .5)
+			    //robot.Read();
+				if(sqrt(pow((x-p2dProxy.GetXPos()),2) + pow((y-p2dProxy.GetYPos()), 2)) > 1)
 				{
 					simProxy.SetPose2d(itemList[i].name, x, y, 0);
 				}
@@ -621,7 +624,9 @@ void DynamicPlanning(item_t *items, bool flag)
 			}
 		}
 
-		if((sonarProxy[3] < 1.5) || (sonarProxy[4] < 1.5))
+		double avoidDist = 1.6;
+
+		if((sonarProxy[3] < avoidDist) || (sonarProxy[4] < avoidDist))
 		{
 			printf("\nObstacle detected\n");
 			//distMat[0][noOfPoints+1] = numeric_limits<double>::max();
@@ -646,19 +651,35 @@ void DynamicPlanning(item_t *items, bool flag)
 				break;
 			}
 
+			check = true;
+
 			continue;
 		}
 
-
-		if((sonarProxy[9] < 1.5) || (sonarProxy[14] < 1.5))
+		double safe = 1.5;
+		if((sonarProxy[0] > safe) && (sonarProxy[1] > safe) && (sonarProxy[2] > safe) && (sonarProxy[3] > safe) &&
+		  (sonarProxy[4] > safe) && (sonarProxy[5] > safe) && (sonarProxy[6] > safe) && (sonarProxy[7] > safe) &&
+	      (sonarProxy[8] > safe) && (sonarProxy[9] > safe) && (sonarProxy[10] > safe) && (sonarProxy[11] > safe) &&
+		  (sonarProxy[12] > safe) && (sonarProxy[13] > safe) && (sonarProxy[14] > safe) && (sonarProxy[15] > safe))
 		{
-			DynamicPlanning(itemList, true);
 
-			if (isGoal(nodeGoal->x, nodeGoal->y, p2dProxy.GetXPos(), p2dProxy.GetYPos()))
-			{
-				break;
-			}
+
+				if (isGoal(nodeGoal->x, nodeGoal->y, p2dProxy.GetXPos(), p2dProxy.GetYPos()))
+				{
+					break;
+				}
+
+				if(check == true)
+				check = false,DynamicPlanning(itemList, true);
+
 		}
+
+		if (isGoal(nodeGoal->x, nodeGoal->y, p2dProxy.GetXPos(), p2dProxy.GetYPos()))
+		{
+			break;
+		}
+
+		//DynamicPlanning(itemList, true);
 	}
 
 	/*if (!isGoal(nodeGoal->x, nodeGoal->y, p2dProxy.GetXPos(), p2dProxy.GetYPos()))
