@@ -45,10 +45,10 @@ define black model
 	color "black"
 )
 
-orange(name "orange1" pose [-1 -5 0 0])
-orange(name "orange2" pose [-2 -5 0 0])
-orange(name "orange3" pose [-3 -5 0 0])
-orange(name "orange4" pose [-4 -5 0 0])
+orange(name "orange1" pose [-20 -20 0 0])
+orange(name "orange2" pose [-20 -20 0 0])
+orange(name "orange3" pose [-20 -20 0 0])
+orange(name "orange4" pose [-20 -20 0 0])
 
 black(name "black1" pose [0 0 0 0])
 black(name "black2" pose [-5 3 0 0])
@@ -60,3 +60,4 @@ black(name "black7" pose [-1.5 -3 0 0])
 black(name "black8" pose [-2 5 0 0])
 black(name "black9" pose [-2 2 0 0])
 black(name "black10" pose [7 -2 0 0])
+black(name "black10" pose [3 -1 0 0])

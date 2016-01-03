@@ -143,7 +143,87 @@ int minDistance(double dist[], bool sptSet[])
    return min_index;
 }
 
-vector<double> Dijkstra(int src)
+vector<Node*> Dijkstra(int src, int goal)
+		{
+	double dist[points.size()];
+	int prev[points.size()]; // The output array.  dist[i] will hold the shortest
+	// distance from src to i
+
+	bool sptSet[points.size()]; // sptSet[i] will true if vertex i is included in shortest
+	// path tree or shortest distance from src to i is finalized
+
+	// Initialize all distances as INFINITE and stpSet[] as false
+	for (int i = 0; i < points.size(); i++)
+	{
+		dist[i] = numeric_limits<double>::max();
+		sptSet[i] = false;
+		prev[i] = 0;
+	}
+
+	// Distance of source vertex from itself is always 0
+	dist[src] = 0;
+
+	// Find shortest path for all vertices
+	for (int count = 0; count < points.size()-1; count++)
+	{
+		// Pick the minimum distance vertex from the set of vertices not
+		// yet processed. u is always equal to src in first iteration.
+		int u = minDistance(dist, sptSet);
+
+		// Mark the picked vertex as processed
+		sptSet[u] = true;
+
+		// Update dist value of the adjacent vertices of the picked vertex.
+		for (int v = 0; v < points.size(); v++)
+		{
+			// Update dist[v] only if is not in sptSet, there is an edge from
+			// u to v, and total weight of path from src to  v through u is
+			// smaller than current value of dist[v]
+			if (!sptSet[v] && distMat[u][v] && dist[u] != numeric_limits<double>::max() && dist[u]+distMat[u][v] < dist[v])
+			{
+				dist[v] = dist[u] + distMat[u][v];
+				prev[v] = u;
+			}
+
+		}
+	}
+
+
+		stack<int> stk;
+		vector<Node*> path;
+
+		for(int i = 0; i < points.size(); i++)
+		{
+			if(i == goal)
+			{
+				int j;
+				stk.push(i);
+
+				j = i;
+
+				do
+				{
+					j = prev[j];
+					stk.push(j);
+					//cout << "<-" << j;
+
+				}while(j != 0);
+
+				cout<<endl;
+			}
+		}
+
+		while(!stk.empty())
+		{
+			path.push_back(points.at(stk.top()));
+			stk.pop();
+		}
+
+		return path;
+
+}
+
+vector<double> CalcHeuristics(int src)
 {
      double dist[points.size()];     // The output array.  dist[i] will hold the shortest
                       // distance from src to i
@@ -274,7 +354,7 @@ class Graph
     }
     void AssignHeuristics()
     {
-    	vector<double> heuristicsList = Dijkstra(points.size()-1);
+    	vector<double> heuristicsList = CalcHeuristics(points.size()-1);
     	for(int i = 0; i < points.size(); i++)
     	{
     		cout << heuristicsList.at(i) << " ";
@@ -560,7 +640,8 @@ void DynamicPlanning(item_t *items, bool flag)
 
 	item_t *itemList = items;
 
-	waypoints = AstarAlgo();
+	//waypoints = AstarAlgo();
+	waypoints = Dijkstra(0, points.size()-1);
 
 	printPath(waypoints);
 
@@ -568,6 +649,7 @@ void DynamicPlanning(item_t *items, bool flag)
 
 	int i = 0;
 	int j = 1;
+	int overflow = 0;
 	Node* p;
 	double startTime = GetTickCount();
 
@@ -575,10 +657,10 @@ void DynamicPlanning(item_t *items, bool flag)
 
 	while (true)
 	{
-		double currentTime = GetTickCount() - startTime;
+		//double currentTime = GetTickCount() - startTime;
 		robot.Read();
 
-		if( currentTime >= 3000 ) //3 seconds.
+	/*	if( currentTime >= 3000 ) //3 seconds.
 		{
 		//do
 			for(int i = 0; i < 4; i++)
@@ -596,7 +678,7 @@ void DynamicPlanning(item_t *items, bool flag)
 		    RefreshItemList(itemList, simProxy);
 			//Reset the timer.
 			startTime = GetTickCount();
-		}
+		}*/
 
 		//Main Process
 
@@ -638,9 +720,9 @@ void DynamicPlanning(item_t *items, bool flag)
 
 			distMat[0][secondIndex] = numeric_limits<double>::max();
 			distMat[secondIndex][0] = numeric_limits<double>::max();
-
-		    waypoints = AstarAlgo();
-
+			overflow++;
+		    //waypoints = AstarAlgo();
+			waypoints = Dijkstra(0, points.size()-1);
 			printPath(waypoints);
 			i = 0;
 			j = 1;
@@ -649,6 +731,11 @@ void DynamicPlanning(item_t *items, bool flag)
 			if (isGoal(nodeGoal->x, nodeGoal->y, p2dProxy.GetXPos(), p2dProxy.GetYPos()))
 			{
 				break;
+			}
+
+			if(overflow > noOfPoints)
+			{
+				DynamicPlanning(itemList, true);
 			}
 
 			check = true;
@@ -694,11 +781,11 @@ void DynamicPlanning(item_t *items, bool flag)
 int main(int argc, char *argv[])
 {
 	srand(time(NULL));
-	double init_x = fRand(-6.00, 6.00);
-	double init_y = fRand(-6.00, 6.00);
-	cout << "robot at: (" << init_x << "," << init_y << ")"<< endl;
+	//double init_x = fRand(-6.00, 6.00);
+	//double init_y = fRand(-6.00, 6.00);
+	//cout << "robot at: (" << init_x << "," << init_y << ")"<< endl;
 
-	simProxy.SetPose2d("iRobo",init_x , init_y, 0);
+	simProxy.SetPose2d("iRobo",6 , -6, 0);
 	//simProxy.SetPose2d("iRobo",-6 , -6, 0);
 
 	item_t itemList[8];
