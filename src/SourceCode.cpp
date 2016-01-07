@@ -16,6 +16,7 @@
 #include <time.h>
 #include <stdlib.h>
 #include <stack>
+#include <queue>
 #define EPSILON    (1.0E-1)
 //#include <values.h>
 
@@ -24,17 +25,24 @@ using namespace std;
 
 static double inc = 0;
 static double distMat[1000][1000];
+static double traveledDist = 0.0;
+static double prevX = 0.0;
+static double prevY = 0.0;
+static double currentX = 0.0;
+static double currentY = 0.0;
+
 PlayerClient robot("localhost", 6665);
 Position2dProxy p2dProxy(&robot, 0);
 RangerProxy sonarProxy(&robot, 0);
 SimulationProxy simProxy(&robot, 0);
-int noOfPoints = 100;
+int noOfPoints = 10;
+
 
 struct Item
 {
-      char name[16];
-      double x;
-      double y;
+	char name[16];
+	double x;
+	double y;
 }typedef item_t;
 
 double fRand(double fMin, double fMax)
@@ -45,11 +53,11 @@ double fRand(double fMin, double fMax)
 
 unsigned GetTickCount()
 {
-        struct timeval tv;
-        if(gettimeofday(&tv, NULL) != 0)
-                return 0;
+	struct timeval tv;
+	if(gettimeofday(&tv, NULL) != 0)
+		return 0;
 
-        return (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
+	return (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
 }
 
 bool isGoal(double gX, double gY, double cX, double cY)
@@ -83,46 +91,47 @@ void RefreshItemList(item_t *itemList, SimulationProxy &simProxy)
 
 class Node
 {
-    public:
+public:
 
-    double x;
-    double y;
-    double Gn;
-    double Hn;
-    Node *parent = NULL;
+	double x;
+	double y;
+	double Gn;
+	double Hn;
+	Node *parent = NULL;
+	bool visited = false;
 
-    Node(double x, double y)
-    {
-        this->x = x;
-        this->y = y;
-    }
+	Node(double x, double y)
+	{
+		this->x = x;
+		this->y = y;
+	}
 
-    vector<Node*> getSuccessors(vector<Node*> points)
-    {
-        vector<Node*> successors;
+	vector<Node*> getSuccessors(vector<Node*> points)
+    				{
+		vector<Node*> successors;
 
-        //Get the index from points vector
-        int node_index;
+		//Get the index from points vector
+		int node_index;
 
-        for(int i = 0; i < points.size(); i++)
-        {
-            if(points.at(i) == this)
-            {
-                node_index = i;
-                break;
-            }
-        }
+		for(int i = 0; i < points.size(); i++)
+		{
+			if(points.at(i) == this)
+			{
+				node_index = i;
+				break;
+			}
+		}
 
-        //Get the successor nodes
-        for(int i = 0; i < points.size(); i++)
-        {
-            if(distMat[node_index][i] != numeric_limits<double>::max())
-            {
-                successors.push_back(points.at(i));
-            }
-        }
-        return successors;
-    }
+		//Get the successor nodes
+		for(int i = 0; i < points.size(); i++)
+		{
+			if(distMat[node_index][i] != numeric_limits<double>::max())
+			{
+				successors.push_back(points.at(i));
+			}
+		}
+		return successors;
+    				}
 };
 
 double EuclidianDist(Node*, Node*);
@@ -133,18 +142,30 @@ vector<Node*> points;
 
 int minDistance(double dist[], bool sptSet[])
 {
-   // Initialize min value
-   double min = numeric_limits<double>::max(), min_index;
+	// Initialize min value
+	double min = numeric_limits<double>::max(), min_index;
 
-   for (int v = 0; v < points.size(); v++)
-     if (sptSet[v] == false && dist[v] <= min)
-         min = dist[v], min_index = v;
+	for (int v = 0; v < points.size(); v++)
+		if (sptSet[v] == false && dist[v] <= min)
+			min = dist[v], min_index = v;
 
-   return min_index;
+	return min_index;
+}
+
+void CalcTraveledDist()
+{
+	currentX = p2dProxy.GetXPos();
+	currentY = p2dProxy.GetYPos();
+
+	traveledDist += sqrt(pow((currentX - prevX), 2) + pow((currentY - prevY), 2));
+	prevX = p2dProxy.GetXPos();
+	prevY = p2dProxy.GetYPos();
 }
 
 vector<Node*> Dijkstra(int src, int goal)
-		{
+{
+	CalcTraveledDist();
+
 	double dist[points.size()];
 	int prev[points.size()]; // The output array.  dist[i] will hold the shortest
 	// distance from src to i
@@ -189,93 +210,101 @@ vector<Node*> Dijkstra(int src, int goal)
 	}
 
 
-		stack<int> stk;
-		vector<Node*> path;
+	stack<int> stk;
+	vector<Node*> path;
 
-		for(int i = 0; i < points.size(); i++)
+	for(int i = 0; i < points.size(); i++)
+	{
+		if(i == goal)
 		{
-			if(i == goal)
+			int j;
+			stk.push(i);
+
+			j = i;
+
+			do
 			{
-				int j;
-				stk.push(i);
+				j = prev[j];
+				stk.push(j);
+				//cout << "<-" << j;
 
-				j = i;
+			}while(j != 0);
 
-				do
-				{
-					j = prev[j];
-					stk.push(j);
-					//cout << "<-" << j;
-
-				}while(j != 0);
-
-				cout<<endl;
-			}
+			cout<<endl;
 		}
+	}
 
-		while(!stk.empty())
-		{
-			path.push_back(points.at(stk.top()));
-			stk.pop();
-		}
+	while(!stk.empty())
+	{
+		path.push_back(points.at(stk.top()));
+		stk.pop();
+	}
 
-		return path;
+	return path;
 
-}
+						}
 
 vector<double> CalcHeuristics(int src)
 {
-     double dist[points.size()];     // The output array.  dist[i] will hold the shortest
-                      // distance from src to i
+	double dist[points.size()];     // The output array.  dist[i] will hold the shortest
+	// distance from src to i
+	//int prev[points.size()];
 
-     bool sptSet[points.size()]; // sptSet[i] will true if vertex i is included in shortest
-                     // path tree or shortest distance from src to i is finalized
+	bool sptSet[points.size()]; // sptSet[i] will true if vertex i is included in shortest
+	// path tree or shortest distance from src to i is finalized
 
-     // Initialize all distances as INFINITE and stpSet[] as false
-     for (int i = 0; i < points.size(); i++)
-     {
-        dist[i] = numeric_limits<double>::max(), sptSet[i] = false;
-     }
+	// Initialize all distances as INFINITE and stpSet[] as false
+	for (int i = 0; i < points.size(); i++)
+	{
+		dist[i] = numeric_limits<double>::max(), sptSet[i] = false;
+	}
 
-     // Distance of source vertex from itself is always 0
-     dist[src] = 0;
+	// Distance of source vertex from itself is always 0
+	dist[src] = 0;
 
-     // Find shortest path for all vertices
-     for (int count = 0; count < points.size()-1; count++)
-     {
-       // Pick the minimum distance vertex from the set of vertices not
-       // yet processed. u is always equal to src in first iteration.
-       int u = minDistance(dist, sptSet);
+	// Find shortest path for all vertices
+	for (int count = 0; count < points.size()-1; count++)
+	{
+		// Pick the minimum distance vertex from the set of vertices not
+		// yet processed. u is always equal to src in first iteration.
+		int u = minDistance(dist, sptSet);
 
-       // Mark the picked vertex as processed
-       sptSet[u] = true;
+		// Mark the picked vertex as processed
+		sptSet[u] = true;
 
-       // Update dist value of the adjacent vertices of the picked vertex.
-       for (int v = 0; v < points.size(); v++)
-       {
-         // Update dist[v] only if is not in sptSet, there is an edge from
-         // u to v, and total weight of path from src to  v through u is
-         // smaller than current value of dist[v]
-         if (!sptSet[v] && distMat[u][v] && dist[u] != numeric_limits<double>::max() && dist[u]+distMat[u][v] < dist[v])
-         {
-        	 dist[v] = dist[u] + distMat[u][v];
-         }
+		// Update dist value of the adjacent vertices of the picked vertex.
+		for (int v = 0; v < points.size(); v++)
+		{
+			// Update dist[v] only if is not in sptSet, there is an edge from
+			// u to v, and total weight of path from src to  v through u is
+			// smaller than current value of dist[v]
+			if (!sptSet[v] && distMat[u][v] && dist[u] != numeric_limits<double>::max() && dist[u]+distMat[u][v] < dist[v])
+			{
+				dist[v] = dist[u] + distMat[u][v];
+				//prev[v] = u;
+			}
 
-       }
-     }
+		}
 
-     cout << "Original : " << endl;
+		/*for(int i = 0; i < points.size(); i++)
+		{
+			cout<< prev[i] << " ";
+		}
+		cout<<endl;*/
+	}
 
-     vector<double> heuristics;
+	cout << "Original : " << endl;
 
-     for(int i = 0; i < points.size(); i++)
-     {
-         //cout << dist[i] << " ";
-         heuristics.push_back(dist[i]);
-     }
+	vector<double> heuristics;
 
-     //cout << "no Of Points: " << points.size()<< endl;
-     return heuristics;
+	for(int i = 0; i < points.size(); i++)
+	{
+		//cout << dist[i] << " ";
+		heuristics.push_back(dist[i]);
+	}
+
+	//cout << "no Of Points: " << points.size()<< endl;
+	return heuristics;
 
 }
 
@@ -283,25 +312,25 @@ vector<double> CalcHeuristics(int src)
 class Graph
 {
 
-    public:
+public:
 
 	void initGraph()
 	{
 		// Initialize each cell as infinity
 		for(int i = 0; i < points.size(); i++)
 		{
-    		for(int j = 0; j < points.size(); j++)
-    		{
-		         distMat[i][j] = numeric_limits<double>::max();
-		         distMat[j][i] = numeric_limits<double>::max();
-		    }
+			for(int j = 0; j < points.size(); j++)
+			{
+				distMat[i][j] = numeric_limits<double>::max();
+				distMat[j][i] = numeric_limits<double>::max();
+			}
 		}
 	}
 
-    void ConnectAllNodes()
-    {
+	void ConnectAllNodes()
+	{
 
-    	/*
+		/*
     	        // Connect the nodes by level
     	        for(int i = 0; i < points.size(); i++)
     	        {
@@ -322,26 +351,26 @@ class Graph
     	            }
     	        }*/
 
-    	       // Connect all nodes
-    	        for(int i = 0; i < points.size(); i++)
-    	        {
-    	            Node* node1 = points.at(i);
+		// Connect all nodes
+		for(int i = 0; i < points.size(); i++)
+		{
+			Node* node1 = points.at(i);
 
-    	            for(int j = 0; j < points.size(); j++)
-    	            {
-    	                Node* node2 = points.at(j);
+			for(int j = 0; j < points.size(); j++)
+			{
+				Node* node2 = points.at(j);
 
-    	                if(i != j)
-    	                {
-    	                    double distMeasure = EuclidianDist(node1, node2);
-    	                    distMat[i][j] = distMeasure;
-    	                    distMat[j][i] = distMeasure;
-    	                }
-    	            }
-    	        }
+				if(i != j)
+				{
+					double distMeasure = EuclidianDist(node1, node2);
+					distMat[i][j] = distMeasure;
+					distMat[j][i] = distMeasure;
+				}
+			}
+		}
 
-    	        //Show the distance matrix
-    	         /*   cout << endl << endl << "Distance Matrix :" << endl;
+		//Show the distance matrix
+		/*   cout << endl << endl << "Distance Matrix :" << endl;
     	            for(int i = 0; i < points.size(); i++)
     	            {
     	                for(int j = 0; j < points.size(); j++)
@@ -351,22 +380,60 @@ class Graph
     	                cout << endl;
     	            }*/
 
-    }
-    void AssignHeuristics()
-    {
-    	vector<double> heuristicsList = CalcHeuristics(points.size()-1);
-    	for(int i = 0; i < points.size(); i++)
-    	{
-    		cout << heuristicsList.at(i) << " ";
-    		points.at(i)->Hn = heuristicsList.at(i);
-    	}
-    }
+	}
+	void AssignHeuristics()
+	{
+
+		// h1 = Use the Euclidian Distance as Heuristics value
+		/*for(int i = 0; i < points.size(); i++)
+		{
+			double heuristicDist = EuclidianDist(points.at(i), points.at(points.size()-1));
+			points.at(i)->Hn = heuristicDist;
+		}*/
+
+
+
+		// h2 = Use the actual heuristics calculated by Dijkstra's Algorithm.
+		/*vector<double> ActualHeuristicsList = CalcHeuristics(points.size()-1);
+		for(int i = 0; i < points.size(); i++)
+		{
+			cout << ActualHeuristicsList.at(i) << " ";
+			points.at(i)->Hn = ActualHeuristicsList.at(i);
+		}
+		 */
+
+
+
+
+
+		// h3 = max(h1, h2)
+		/*vector<double> ActualHeuristicsList = CalcHeuristics(points.size()-1);
+
+		for(int i = 0; i < points.size(); i++)
+		{
+			double heuristicDist = EuclidianDist(points.at(i), points.at(points.size()-1));
+			if(ActualHeuristicsList.at(i) > heuristicDist)
+				points.at(i)->Hn = ActualHeuristicsList.at(i);
+			else
+				points.at(i)->Hn = heuristicDist;
+		}*/
+
+		// h4 = h1 + h2 / noOfPoints
+		vector<double> ActualHeuristicsList = CalcHeuristics(points.size()-1);
+
+		for(int i = 0; i < points.size(); i++)
+		{
+			double heuristicDist = EuclidianDist(points.at(i), points.at(points.size()-1));
+			points.at(i)->Hn = ActualHeuristicsList.at(i) - (heuristicDist/noOfPoints);
+		}
+
+	}
 };
 
 double EuclidianDist(Node* node1, Node* node2)
 {
-    double distance = 0.0;
-    return distance = sqrt(pow((node1->x - node2->x), 2) + pow((node1->y - node2->y), 2));
+	double distance = 0.0;
+	return distance = sqrt(pow((node1->x - node2->x), 2) + pow((node1->y - node2->y), 2));
 }
 
 void Initialization()
@@ -375,29 +442,29 @@ void Initialization()
 	robot.Read();
 
 
-    Node *start = new Node(p2dProxy.GetXPos(), p2dProxy.GetYPos());
+	Node *start = new Node(p2dProxy.GetXPos(), p2dProxy.GetYPos());
 
-    cout << "First Node is: " << start->x << "," << start->y << endl;
+	cout << "First Node is: " << start->x << "," << start->y << endl;
 
-    Node *goal = new Node(-4.0, 5.0);
-
-
-    //Random Points
-    points.push_back(start);
+	Node *goal = new Node(-4.0, 5.0);
 
 
+	//Random Points
+	points.push_back(start);
 
-    for(int i = 0; i < noOfPoints; i++)
-    {
 
-    	double x = -6.0 + ((double)rand() / (RAND_MAX / (6.00- (-6.00))));
-    	double y = -6.0 + ((double)rand() / (RAND_MAX / (6.00- (-6.00))));
-    	Node *point = new Node(x, y);
-    	points.push_back(point);
-    }
-    points.push_back(goal);
 
-    /*double distStart2Goal = EuclidianDist(start, goal);
+	for(int i = 0; i < noOfPoints; i++)
+	{
+
+		double x = -6.0 + ((double)rand() / (RAND_MAX / (6.00- (-6.00))));
+		double y = -6.0 + ((double)rand() / (RAND_MAX / (6.00- (-6.00))));
+		Node *point = new Node(x, y);
+		points.push_back(point);
+	}
+	points.push_back(goal);
+
+	/*double distStart2Goal = EuclidianDist(start, goal);
     double noOfSegment = 3;
     inc = distStart2Goal / noOfSegment;
     double x = start->x;
@@ -425,34 +492,35 @@ void Initialization()
 
 int indexOf(vector<Node*> container, Node* node)
 {
-    for(int i = 0; i < container.size(); i++)
-    {
-        if(container.at(i) == node)
-            return i;
-    }
-    return -1;
+	for(int i = 0; i < container.size(); i++)
+	{
+		if(container.at(i) == node)
+			return i;
+	}
+	return -1;
 }
 
 vector<Node*> AstarAlgo()
 {
+	CalcTraveledDist();
 
-    //Take the start and goal node
-    Node* node_start = points.at(0);
-    Node* node_goal = points.at(points.size()-1);
+	//Take the start and goal node
+	Node* node_start = points.at(0);
+	Node* node_goal = points.at(points.size()-1);
 
-    //Print start and goal points
-    //cout << "Start point is: (" << node_start->x << "," << node_start->y << ")" << endl << "Goal point is : (" << node_goal->x << "," << node_goal->y << ")" << endl;
+	//Print start and goal points
+	//cout << "Start point is: (" << node_start->x << "," << node_start->y << ")" << endl << "Goal point is : (" << node_goal->x << "," << node_goal->y << ")" << endl;
 
-    //Print all points
-    cout << endl << "All points are : " << endl;
-    for(int i = 0; i < points.size(); i++)
-    {
-        Node* p = points.at(i);
-        cout << "(" << p->x << "," << p->y << ")";
-    }
+	//Print all points
+	cout << endl << "All points are : " << endl;
+	for(int i = 0; i < points.size(); i++)
+	{
+		Node* p = points.at(i);
+		cout << "(" << p->x << "," << p->y << ")";
+	}
 
-    //Show the distance matrix
-    /*cout << endl << endl << "Distance Matrix :" << endl;
+	//Show the distance matrix
+	/*cout << endl << endl << "Distance Matrix :" << endl;
     for(int i = 0; i < points.size(); i++)
     {
         for(int j = 0; j < points.size(); j++)
@@ -462,114 +530,114 @@ vector<Node*> AstarAlgo()
         cout << endl;
     }*/
 
-    //Main process starts
-    vector<Node*> open;
-    vector<Node*> closed;
+	//Main process starts
+	vector<Node*> open;
+	vector<Node*> closed;
 
-    open.push_back(node_start);
+	open.push_back(node_start);
 
-    node_start->Gn = 0;
-    //node_start->Hn = 0; //EuclidianDist(node_start, node_goal);
+	node_start->Gn = 0;
+	//node_start->Hn = 0; //EuclidianDist(node_start, node_goal);
 
-    //double node_start_Fn = node_start->Hn;
+	//double node_start_Fn = node_start->Hn;
 
-    while(!open.empty())
-    {
-        Node* node_current;
-        int min_index = 0;
-        double min_Fn = numeric_limits<double>::max();
+	while(!open.empty())
+	{
+		Node* node_current;
+		int min_index = 0;
+		double min_Fn = numeric_limits<double>::max();
 
-        for(int i = 0; i < open.size(); i++)
-        {
-            Node* p = open.at(i);
-            if((p->Gn + p->Hn) < min_Fn)
-            {
-                min_Fn = p->Gn + p->Hn;
-                min_index = i;
-            }
-        }
+		for(int i = 0; i < open.size(); i++)
+		{
+			Node* p = open.at(i);
+			if((p->Gn + p->Hn) < min_Fn)
+			{
+				min_Fn = p->Gn + p->Hn;
+				min_index = i;
+			}
+		}
 
-        node_current = open.at(min_index);
-        open.erase(open.begin()+min_index);
-
-
-        if(node_current == node_goal)
-        {
-            node_goal->parent = node_current->parent;
-            break;
-        }
-
-        vector<Node*> successors = node_current->getSuccessors(points);
+		node_current = open.at(min_index);
+		open.erase(open.begin()+min_index);
 
 
+		if(node_current == node_goal)
+		{
+			node_goal->parent = node_current->parent;
+			break;
+		}
 
-        //For each successor nodes perform
-        for(int i = 0; i < successors.size(); i++)
-        {
-            Node* node_successor = successors.at(i);
+		vector<Node*> successors = node_current->getSuccessors(points);
 
-            double successor_current_w = EuclidianDist(node_current, node_successor);
-            double successor_current_cost = node_current->Gn + successor_current_w;
 
-            int oFound = indexOf(open, node_successor);
-            int cFound = indexOf(closed, node_successor);
 
-            if(oFound > -1)
-            {
-                if(node_successor->Gn <= successor_current_cost)
-                    continue;
-            }
-            else if(cFound > -1)
-            {
-                 if(node_successor->Gn <= successor_current_cost)
-                    continue;
+		//For each successor nodes perform
+		for(int i = 0; i < successors.size(); i++)
+		{
+			Node* node_successor = successors.at(i);
 
-                 open.push_back(node_successor);
-                 int index = indexOf(closed, node_successor);
-                 closed.erase(closed.begin()+index);
+			double successor_current_w = EuclidianDist(node_current, node_successor);
+			double successor_current_cost = node_current->Gn + successor_current_w;
 
-            }
-            else
-            {
-                //Add node_successor to the OPEN list
-                open.push_back(node_successor);
+			int oFound = indexOf(open, node_successor);
+			int cFound = indexOf(closed, node_successor);
+
+			if(oFound > -1)
+			{
+				if(node_successor->Gn <= successor_current_cost)
+					continue;
+			}
+			else if(cFound > -1)
+			{
+				if(node_successor->Gn <= successor_current_cost)
+					continue;
+
+				open.push_back(node_successor);
+				int index = indexOf(closed, node_successor);
+				closed.erase(closed.begin()+index);
+
+			}
+			else
+			{
+				//Add node_successor to the OPEN list
+				open.push_back(node_successor);
 
 				//Set h(node_successor) to be the heuristic distance to node_goal
-                //node_successor->Hn = 0;//EuclidianDist(node_successor, node_goal);
-            }
-            //Set g(node_successor) = successor_current_cost
-            node_successor->Gn = successor_current_cost;
+				//node_successor->Hn = 0;//EuclidianDist(node_successor, node_goal);
+			}
+			//Set g(node_successor) = successor_current_cost
+			node_successor->Gn = successor_current_cost;
 
 			//Set the parent of node_successor to node_current
 			node_successor->parent = node_current;
-        }
+		}
 
-        //Add node_current to the CLOSED list
-        closed.push_back(node_current);
+		//Add node_current to the CLOSED list
+		closed.push_back(node_current);
 
-    }
+	}
 
-    Node* p = node_goal;
-    stack<Node*> stack;
-    vector<Node*> path;
+	Node* p = node_goal;
+	stack<Node*> stack;
+	vector<Node*> path;
 
-    while(p != NULL)
-    {
-        stack.push(p);
-        p = p->parent;
-    }
+	while(p != NULL)
+	{
+		stack.push(p);
+		p = p->parent;
+	}
 
-    while(!stack.empty())
-    {
-    		Node* node = stack.top();
-    	    stack.pop();
-    	    path.push_back(node);
-            //cout << "(" << node->x << "," << node->y << ")";
-    }
+	while(!stack.empty())
+	{
+		Node* node = stack.top();
+		stack.pop();
+		path.push_back(node);
+		//cout << "(" << node->x << "," << node->y << ")";
+	}
 
-    return path;
+	return path;
 
-}
+				}
 
 void printPath(vector<Node*> waypoints)
 {
@@ -577,26 +645,252 @@ void printPath(vector<Node*> waypoints)
 	for(int i = 0; i < waypoints.size(); i++)
 	{
 		Node* node = waypoints.at(i);
-	       cout << "(" << node->x << "," << node->y << ")";
+		cout << "(" << node->x << "," << node->y << ")";
 	}
 
 	cout<<endl;
 }
 
-float ROT_VEL = 10;
 
-void rotateInPlace(float t, float a_mult)
-{  //t being the turn angle and a_mult to modify the turning speed
-  int tt = (unsigned int) (fabs(t)*float(1e6)/(ROT_VEL*a_mult));
+struct node_cmp
+{
+	bool operator()( const Node* a, const Node* b ) const
+	{
+		return a->Gn > b->Gn;
+	}
+};
 
-  for(; tt>0; tt-=1000000)
-  {
-	p2dProxy.SetSpeed(0.0, (t>0?1:-1)*ROT_VEL*a_mult);
-    usleep(std::max(std::min(1000000,tt),20000));
-  }
-  p2dProxy.SetSpeed(0.0,0.0);
+
+vector<Node*> UniformCostSearch()
+{
+	//Take the start and goal node
+	Node* node_start = points.at(0);
+	Node* node_goal = points.at(points.size()-1);
+
+	cout << endl << "All points are : " << endl;
+		for(int i = 0; i < points.size(); i++)
+		{
+			Node* p = points.at(i);
+			cout << "(" << p->x << "," << p->y << ")";
+		}
+
+	std::priority_queue<Node*, std::vector<Node*>, node_cmp> pQueue;
+	node_start->Gn = 0.0;
+	node_start->parent = NULL;
+	node_start->visited = true;
+
+	pQueue.push(node_start);
+
+	while(!pQueue.empty())
+	{
+		Node* node_current;
+		node_current = pQueue.top();
+		pQueue.pop();
+
+		if(node_current == node_goal)
+		{
+			node_goal->parent = node_current->parent;
+			break;
+		}
+
+		vector<Node*> successors = node_current->getSuccessors(points);
+
+		for(int i = 0; i < successors.size(); i++)
+		{
+			Node* node_successor = successors.at(i);
+
+			double successor_current_w = EuclidianDist(node_current, node_successor);
+			double successor_current_cost = node_current->Gn + successor_current_w;
+
+			if(node_successor->visited)
+			{
+				if(successor_current_cost < node_successor->Gn)
+				{
+					node_successor->Gn = successor_current_cost;
+					node_successor->parent = node_current;
+				}
+
+			}
+			else
+			{
+				node_successor->Gn = successor_current_cost;
+				node_successor->parent = node_current;
+				pQueue.push(node_successor);
+				node_successor->visited = true;
+			}
+		}
+	}
+
+
+	Node* p = node_goal;
+	stack<Node*> stack;
+	vector<Node*> path;
+
+	while(p != NULL)
+	{
+		stack.push(p);
+		p = p->parent;
+	}
+
+	while(!stack.empty())
+	{
+		Node* node = stack.top();
+		stack.pop();
+		path.push_back(node);
+		//cout << "(" << node->x << "," << node->y << ")";
+	}
+
+	for(int i = 0; i < path.size(); i++)
+	{
+		cout << "(" << path.at(i)->x << "," << path.at(i)->y << ")";
+	}
+
+	return path;
 }
 
+
+vector<Node*> GreedyBFS()
+{
+
+	CalcTraveledDist();
+
+	//Take the start and goal node
+	Node* node_start = points.at(0);
+	Node* node_goal = points.at(points.size()-1);
+
+	//Print start and goal points
+	//cout << "Start point is: (" << node_start->x << "," << node_start->y << ")" << endl << "Goal point is : (" << node_goal->x << "," << node_goal->y << ")" << endl;
+
+	//Print all points
+	/*cout << endl << "All points are : " << endl;
+    for(int i = 0; i < points.size(); i++)
+    {
+        Node* p = points.at(i);
+        cout << "(" << p->x << "," << p->y << ")";
+    }*/
+
+	//Show the distance matrix
+	/*cout << endl << endl << "Distance Matrix :" << endl;
+    for(int i = 0; i < points.size(); i++)
+    {
+        for(int j = 0; j < points.size(); j++)
+        {
+            cout << distMat[i][j] << " ";
+        }
+        cout << endl;
+    }*/
+
+	//Main process starts
+	vector<Node*> open;
+	vector<Node*> closed;
+
+	open.push_back(node_start);
+
+	//node_start->Gn = 0;
+	//node_start->Hn = 0; //EuclidianDist(node_start, node_goal);
+
+	//double node_start_Fn = node_start->Hn;
+
+	while(!open.empty())
+	{
+		Node* node_current;
+		int min_index = 0;
+		double min_Fn = numeric_limits<double>::max();
+
+		for(int i = 0; i < open.size(); i++)
+		{
+			Node* p = open.at(i);
+			if(p->Hn < min_Fn)
+			{
+				min_Fn = p->Hn;
+				min_index = i;
+			}
+		}
+
+		node_current = open.at(min_index);
+		open.erase(open.begin()+min_index);
+
+
+		if(node_current == node_goal)
+		{
+			node_goal->parent = node_current->parent;
+			break;
+		}
+
+		vector<Node*> successors = node_current->getSuccessors(points);
+
+
+
+		//For each successor nodes perform
+		for(int i = 0; i < successors.size(); i++)
+		{
+			Node* node_successor = successors.at(i);
+
+			//double successor_current_w = EuclidianDist(node_current, node_successor);
+
+			double successor_current_heuristic = node_current->Hn;
+
+			int oFound = indexOf(open, node_successor);
+			int cFound = indexOf(closed, node_successor);
+
+			if(oFound > -1)
+			{
+				if(node_successor->Hn <= successor_current_heuristic)
+					continue;
+			}
+			else if(cFound > -1)
+			{
+				if(node_successor->Hn <= successor_current_heuristic)
+					continue;
+
+				open.push_back(node_successor);
+				int index = indexOf(closed, node_successor);
+				closed.erase(closed.begin()+index);
+
+			}
+			else
+			{
+				//Add node_successor to the OPEN list
+				open.push_back(node_successor);
+
+				//Set h(node_successor) to be the heuristic distance to node_goal
+				//node_successor->Hn = 0;//EuclidianDist(node_successor, node_goal);
+			}
+			//Set g(node_successor) = successor_current_cost
+
+
+			node_successor->Hn = successor_current_heuristic;
+
+			//Set the parent of node_successor to node_current
+			node_successor->parent = node_current;
+		}
+
+		//Add node_current to the CLOSED list
+		closed.push_back(node_current);
+
+	}
+
+	Node* p = node_goal;
+	stack<Node*> stack;
+	vector<Node*> path;
+
+	while(p != NULL)
+	{
+		stack.push(p);
+		p = p->parent;
+	}
+
+	while(!stack.empty())
+	{
+		Node* node = stack.top();
+		stack.pop();
+		path.push_back(node);
+		//cout << "(" << node->x << "," << node->y << ")";
+	}
+
+	return path;
+
+}
 
 void DynamicPlanning(item_t *items, bool flag)
 {
@@ -610,7 +904,7 @@ void DynamicPlanning(item_t *items, bool flag)
 		//Generate and initialize all points
 		Initialization();
 
-		//Create graph and connect the edges
+		//Create grfaph and connect the edges
 		Graph *graph = new Graph();
 		graph->initGraph();
 		graph->ConnectAllNodes();
@@ -625,6 +919,7 @@ void DynamicPlanning(item_t *items, bool flag)
 		int secondIndex = indexOf(points, waypoints[1]);
 		distMat[0][secondIndex] = numeric_limits<double>::max();
 		distMat[secondIndex][0] = numeric_limits<double>::max();
+
 		/*points.clear();
 		Initialization();
 
@@ -640,8 +935,10 @@ void DynamicPlanning(item_t *items, bool flag)
 
 	item_t *itemList = items;
 
-	//waypoints = AstarAlgo();
-	waypoints = Dijkstra(0, points.size()-1);
+	waypoints = AstarAlgo();
+	//waypoints = Dijkstra(0, points.size()-1);
+	//waypoints = GreedyBFS();
+	//waypoints = UniformCostSearch();
 
 	printPath(waypoints);
 
@@ -657,10 +954,10 @@ void DynamicPlanning(item_t *items, bool flag)
 
 	while (true)
 	{
-		//double currentTime = GetTickCount() - startTime;
+		double currentTime = GetTickCount() - startTime;
 		robot.Read();
-
-	/*	if( currentTime >= 3000 ) //3 seconds.
+/*
+		if( currentTime >= 3000 ) //3 seconds.
 		{
 		//do
 			for(int i = 0; i < 4; i++)
@@ -716,13 +1013,17 @@ void DynamicPlanning(item_t *items, bool flag)
 
 			int secondIndex = indexOf(points, waypoints[1]);
 
-			cout<< secondIndex << endl;
+			cout<< "waypoint 1 = " << waypoints[1] << "  secInd = " <<secondIndex << endl;
 
 			distMat[0][secondIndex] = numeric_limits<double>::max();
 			distMat[secondIndex][0] = numeric_limits<double>::max();
 			overflow++;
-		    //waypoints = AstarAlgo();
-			waypoints = Dijkstra(0, points.size()-1);
+
+			waypoints = AstarAlgo();
+			//waypoints = Dijkstra(0, points.size()-1);
+			//waypoints = GreedyBFS();
+			//waypoints = UniformCostSearch();
+
 			printPath(waypoints);
 			i = 0;
 			j = 1;
@@ -745,18 +1046,18 @@ void DynamicPlanning(item_t *items, bool flag)
 
 		double safe = 1.5;
 		if((sonarProxy[0] > safe) && (sonarProxy[1] > safe) && (sonarProxy[2] > safe) && (sonarProxy[3] > safe) &&
-		  (sonarProxy[4] > safe) && (sonarProxy[5] > safe) && (sonarProxy[6] > safe) && (sonarProxy[7] > safe) &&
-	      (sonarProxy[8] > safe) && (sonarProxy[9] > safe) && (sonarProxy[10] > safe) && (sonarProxy[11] > safe) &&
-		  (sonarProxy[12] > safe) && (sonarProxy[13] > safe) && (sonarProxy[14] > safe) && (sonarProxy[15] > safe))
+				(sonarProxy[4] > safe) && (sonarProxy[5] > safe) && (sonarProxy[6] > safe) && (sonarProxy[7] > safe) &&
+				(sonarProxy[8] > safe) && (sonarProxy[9] > safe) && (sonarProxy[10] > safe) && (sonarProxy[11] > safe) &&
+				(sonarProxy[12] > safe) && (sonarProxy[13] > safe) && (sonarProxy[14] > safe) && (sonarProxy[15] > safe))
 		{
 
 
-				if (isGoal(nodeGoal->x, nodeGoal->y, p2dProxy.GetXPos(), p2dProxy.GetYPos()))
-				{
-					break;
-				}
+			if (isGoal(nodeGoal->x, nodeGoal->y, p2dProxy.GetXPos(), p2dProxy.GetYPos()))
+			{
+				break;
+			}
 
-				if(check == true)
+			if(check == true)
 				check = false,DynamicPlanning(itemList, true);
 
 		}
@@ -780,12 +1081,14 @@ void DynamicPlanning(item_t *items, bool flag)
 
 int main(int argc, char *argv[])
 {
+	clock_t tStart = clock();
+
 	srand(time(NULL));
 	//double init_x = fRand(-6.00, 6.00);
 	//double init_y = fRand(-6.00, 6.00);
 	//cout << "robot at: (" << init_x << "," << init_y << ")"<< endl;
 
-	simProxy.SetPose2d("iRobo",6 , -6, 0);
+	simProxy.SetPose2d("iRobo",6 , -6, 120);
 	//simProxy.SetPose2d("iRobo",-6 , -6, 0);
 
 	item_t itemList[8];
@@ -797,6 +1100,9 @@ int main(int argc, char *argv[])
 	sonarProxy.RequestGeom();
 
 	printf("\n");
+
+	prevX = p2dProxy.GetXPos();
+	prevY = p2dProxy.GetYPos();
 
 	DynamicPlanning(itemList, true);
 
@@ -814,5 +1120,9 @@ int main(int argc, char *argv[])
 	for(int i = 0; i < points.size(); i++)
 		cout << points.at(i)->Hn << " ";*/
 	//rotateInPlace(90, 90);
+
+	printf("Time taken: %.2fs\n", (double)(clock() - tStart)/CLOCKS_PER_SEC);
+	cout<< "Distance Traveled = " << traveledDist<< endl;
+	return 0;
 }
 
