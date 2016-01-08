@@ -399,34 +399,30 @@ public:
 		{
 			cout << ActualHeuristicsList.at(i) << " ";
 			points.at(i)->Hn = ActualHeuristicsList.at(i);
-		}
-		 */
+		}*/
 
 
-
-
-
-		// h3 = max(h1, h2)
+		// h3 = h1 + h2 / noOfPoints
 		/*vector<double> ActualHeuristicsList = CalcHeuristics(points.size()-1);
 
 		for(int i = 0; i < points.size(); i++)
 		{
 			double heuristicDist = EuclidianDist(points.at(i), points.at(points.size()-1));
-			if(ActualHeuristicsList.at(i) > heuristicDist)
-				points.at(i)->Hn = ActualHeuristicsList.at(i);
-			else
-				points.at(i)->Hn = heuristicDist;
+			points.at(i)->Hn = ActualHeuristicsList.at(i) - (heuristicDist/noOfPoints);
 		}*/
 
-		// h4 = h1 + h2 / noOfPoints
-		vector<double> ActualHeuristicsList = CalcHeuristics(points.size()-1);
+		// h4 = max(h1, h2)
+	/*	vector<double> ActualHeuristicsList = CalcHeuristics(points.size()-1);
 
-		for(int i = 0; i < points.size(); i++)
-		{
-			double heuristicDist = EuclidianDist(points.at(i), points.at(points.size()-1));
-			points.at(i)->Hn = ActualHeuristicsList.at(i) - (heuristicDist/noOfPoints);
-		}
-
+				for(int i = 0; i < points.size(); i++)
+				{
+					double heuristicDist = EuclidianDist(points.at(i), points.at(points.size()-1));
+					if(ActualHeuristicsList.at(i) > heuristicDist)
+						points.at(i)->Hn = ActualHeuristicsList.at(i);
+					else
+						points.at(i)->Hn = heuristicDist;
+				}
+*/
 	}
 };
 
@@ -935,8 +931,8 @@ void DynamicPlanning(item_t *items, bool flag)
 
 	item_t *itemList = items;
 
-	waypoints = AstarAlgo();
-	//waypoints = Dijkstra(0, points.size()-1);
+	//waypoints = AstarAlgo();
+	waypoints = Dijkstra(0, points.size()-1);
 	//waypoints = GreedyBFS();
 	//waypoints = UniformCostSearch();
 
@@ -956,8 +952,8 @@ void DynamicPlanning(item_t *items, bool flag)
 	{
 		double currentTime = GetTickCount() - startTime;
 		robot.Read();
-/*
-		if( currentTime >= 3000 ) //3 seconds.
+
+		/*if( currentTime >= 3000 ) //3 seconds.
 		{
 		//do
 			for(int i = 0; i < 4; i++)
@@ -1019,8 +1015,8 @@ void DynamicPlanning(item_t *items, bool flag)
 			distMat[secondIndex][0] = numeric_limits<double>::max();
 			overflow++;
 
-			waypoints = AstarAlgo();
-			//waypoints = Dijkstra(0, points.size()-1);
+			//waypoints = AstarAlgo();
+			waypoints = Dijkstra(0, points.size()-1);
 			//waypoints = GreedyBFS();
 			//waypoints = UniformCostSearch();
 
@@ -1044,6 +1040,11 @@ void DynamicPlanning(item_t *items, bool flag)
 			continue;
 		}
 
+		if (isGoal(nodeGoal->x, nodeGoal->y, p2dProxy.GetXPos(), p2dProxy.GetYPos()))
+		{
+			break;
+		}
+
 		double safe = 1.5;
 		if((sonarProxy[0] > safe) && (sonarProxy[1] > safe) && (sonarProxy[2] > safe) && (sonarProxy[3] > safe) &&
 				(sonarProxy[4] > safe) && (sonarProxy[5] > safe) && (sonarProxy[6] > safe) && (sonarProxy[7] > safe) &&
@@ -1062,10 +1063,7 @@ void DynamicPlanning(item_t *items, bool flag)
 
 		}
 
-		if (isGoal(nodeGoal->x, nodeGoal->y, p2dProxy.GetXPos(), p2dProxy.GetYPos()))
-		{
-			break;
-		}
+
 
 		//DynamicPlanning(itemList, true);
 	}
@@ -1081,7 +1079,9 @@ void DynamicPlanning(item_t *items, bool flag)
 
 int main(int argc, char *argv[])
 {
+	double startTime = GetTickCount();
 	clock_t tStart = clock();
+
 
 	srand(time(NULL));
 	//double init_x = fRand(-6.00, 6.00);
@@ -1120,8 +1120,9 @@ int main(int argc, char *argv[])
 	for(int i = 0; i < points.size(); i++)
 		cout << points.at(i)->Hn << " ";*/
 	//rotateInPlace(90, 90);
+	double currentTime = GetTickCount() - startTime;
 
-	printf("Time taken: %.2fs\n", (double)(clock() - tStart)/CLOCKS_PER_SEC);
+	cout << "Time Taken: " << 2.5*(currentTime/1000) << endl;
 	cout<< "Distance Traveled = " << traveledDist<< endl;
 	return 0;
 }
