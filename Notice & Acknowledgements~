@@ -1,0 +1,18 @@
+This project is done for the thesis work entitled "Heuristic-based Path Planning in Uncertain and Dynamic Environments for Mobile Robots." The contributors are Khandker M. Qaiduzzaman and Md. Aminul Islam, CSE Discipline, Khulna University, Khulna 9208, Bangladesh. 
+
+We are indebted to Player/Stage Project. They provide open source materials and demo codes for simulation. We have used some of their demo codes for designing the simulator. We have used the following portions from Player/Stage Project-
+
+1. "pioneer.inc" file    : We used this file to get the definition of Pioneer robot. As we are not designing our own robot, we used this file 				   for getting design of pioneer robot.
+
+2. "map.inc" file        : This file provides the definition of a default map. We used this default floorplan and zone and modified a bit to 			       	   facilitate our work.
+
+3. "empty.world" file    : We modified this file for our work. We used our own model for static and dynamic obstacles.
+
+4. "empty.cfg" file      : This file was modified to get the appropriate drivers. We kept the necessary drivers for our work and deleted 				   unnecessary portions.
+
+5. "SourceCode.cpp" file : The most important file. almost all code of this file is unique. But as we had to use player tool, we used 
+                           "playerc++.h" header file and used the functions defined at that file.     
+
+Link of Player/Stage Project
+------------------------------
+All of the mentioned materials could be found @ http://playerstage.sourceforge.net/

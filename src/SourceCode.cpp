@@ -2,7 +2,11 @@
 // Name        : SourceCode.cpp
 // Author      : Khandker M. Qaiduzzaman & Md. Aminul Islam
 // Version     : 1.0
-// Copyright   : Your copyright notice
+// Copyright   : This code is done for the thesis work entitled "Heuristic-based
+//				 Path Planning in Uncertain and Dynamic Environments for Mobile
+//				 Robots." The header file playerc++.h is provided by Player/Stage
+//				 project (open source) available at-
+//				 http://playerstage.sourceforge.net/
 //============================================================================
 
 #include <sys/time.h>
@@ -32,24 +36,24 @@ static double currentY = 0.0;
 static int iter = 1;
 
 PlayerClient robot("localhost", 6665);
-Position2dProxy p2dProxy(&robot, 0);
-RangerProxy sonarProxy(&robot, 0);
-SimulationProxy simProxy(&robot, 0);
+Position2dProxy positionProxy(&robot, 0);
+RangerProxy snrProxy(&robot, 0);
+SimulationProxy simulationProxy(&robot, 0);
 
 class Node;
 class Item;
 class Graph;
 
 void Initialization(void);
-void RefreshItemList(Item, SimulationProxy);
+void LoadObstacles(Item);
 void CalcTraveledDist(void);
 void printPath(vector<Node*>);
 void DynamicPlanning(Item);
 double fRand(double, double);
 double EuclidianDist(Node*, Node*);
 int indexOf(vector<Node*>, Node*);
-int minDistance(double, bool);
-unsigned GetTickCount(void);
+int minDist(double, bool);
+unsigned CountTck(void);
 bool isGoal(double, double, double, double);
 vector<Node*> AstarAlgo(void);
 vector<Node*> Dijkstra(void);
@@ -82,22 +86,20 @@ public:
 		this->y = y;
 	}
 
-vector<Node*> getSuccessors(vector<Node*> points) {
-	vector<Node*> successors;
+	vector<Node*> getSuccessors(vector<Node*> points) {
+		vector<Node*> successors;
 
-	//Get the index from points vector
-	int node_index;
+		int node_index;
 
-	for (int i = 0; i < points.size(); i++) {
-		if (points.at(i) == this) {
-			node_index = i;
-			break;
+		for (int i = 0; i < points.size(); i++) {
+			if (points.at(i) == this) {
+				node_index = i;
+				break;
+			}
 		}
-	}
 
-	//Get the successor nodes
-	for (int i = 0; i < points.size(); i++) {
-		if (distMat[node_index][i] != numeric_limits<double>::max()) {
+		for (int i = 0; i < points.size(); i++) {
+			if (distMat[node_index][i] != numeric_limits<double>::max()) {
 				successors.push_back(points.at(i));
 			}
 		}
@@ -110,7 +112,7 @@ class Graph {
 public:
 
 	void initGraph() {
-		// Initialize each cell as infinity
+
 		for (int i = 0; i < points.size(); i++) {
 			for (int j = 0; j < points.size(); j++) {
 				distMat[i][j] = numeric_limits<double>::max();
@@ -121,7 +123,6 @@ public:
 
 	void ConnectAllNodes() {
 
-		// Connect all nodes
 		for (int i = 0; i < points.size(); i++) {
 			Node* node1 = points.at(i);
 
@@ -150,11 +151,11 @@ public:
 
 		// h2 = Use the actual heuristics calculated by Dijkstra's Algorithm.
 		vector<double> ActualHeuristicsList = CalcHeuristics(points.size()-1);
-		 for(int i = 0; i < points.size(); i++)
-		 {
-		 cout << ActualHeuristicsList.at(i) << " ";
-		 points.at(i)->Hn = ActualHeuristicsList.at(i);
-		 }
+		for(int i = 0; i < points.size(); i++)
+		{
+			cout << ActualHeuristicsList.at(i) << " ";
+			points.at(i)->Hn = ActualHeuristicsList.at(i);
+		}
 
 
 
@@ -185,17 +186,18 @@ public:
 };
 
 
-double fRand(double fMin, double fMax) {
-	double f = (double) rand() / RAND_MAX;
-	return fMin + f * (fMax - fMin);
+double funcRand(double min, double max) {
+	double r = (double) rand() / RAND_MAX;
+	double rand = min + r * (max - min);
+	return rand;
 }
-
-unsigned GetTickCount() {
-	struct timeval tv;
-	if (gettimeofday(&tv, NULL) != 0)
+unsigned CountTck() {
+	struct timeval tvalue;
+	if (gettimeofday(&tvalue, NULL) != 0)
 		return 0;
-
-	return (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
+	unsigned tv1 = tvalue.tv_sec * 1000;
+	unsigned tv2 = tvalue.tv_usec / 1000;
+	return tv1 + tv2;
 }
 
 bool isGoal(double gX, double gY, double cX, double cY) {
@@ -209,29 +211,31 @@ bool isGoal(double gX, double gY, double cX, double cY) {
 	return false;
 }
 
-void RefreshItemList(Item *itemList, SimulationProxy &simProxy) {
+void LoadObstacles(Item *obstaclesList) {
 	int i;
 
-	//get the poses of the oranges
 	for (i = 0; i < 4; i++) {
-		char orangeStr[] = "orange%d";
-		sprintf(itemList[i].name, orangeStr, i + 1);
-		double dummy;  //dummy variable, don't need yaws.
-		simProxy.GetPose2d(itemList[i].name, itemList[i].x, itemList[i].y, dummy);
+		double empty;
+		char obstaclesStr[] = "dynObs%d";
+		sprintf(obstaclesList[i].name, obstaclesStr, i + 1);
+		simulationProxy.GetPose2d(obstaclesList[i].name, obstaclesList[i].x, obstaclesList[i].y, empty);
 	}
 
 	return;
 }
 
-int minDistance(double dist[], bool sptSet[]) {
-	// Initialize min value
-	double min = numeric_limits<double>::max(), min_index;
+int minDist(double dist[], bool sPathTreeSet[]) {
+
+	double minIndex = 0.0;
+	double min = numeric_limits<double>::max();
 
 	for (int v = 0; v < points.size(); v++)
-		if (sptSet[v] == false && dist[v] <= min)
-			min = dist[v], min_index = v;
+		if (dist[v] <= min && sPathTreeSet[v] == false){
+			min = dist[v];
+			minIndex = v;
+		}
 
-	return min_index;
+	return minIndex;
 }
 
 double EuclidianDist(Node* node1, Node* node2) {
@@ -263,11 +267,10 @@ void Initialization() {
 
 	robot.Read();
 
-	Node *start = new Node(p2dProxy.GetXPos(), p2dProxy.GetYPos());
+	Node *start = new Node(positionProxy.GetXPos(), positionProxy.GetYPos());
 
 	Node *goal = new Node(-4.0, 5.0);
 
-	//Random Points
 	points.push_back(start);
 
 	for (int i = 0; i < NO_OF_POINTS - 2; i++) {
@@ -283,13 +286,13 @@ void Initialization() {
 
 
 void CalcTraveledDist() {
-	currentX = p2dProxy.GetXPos();
-	currentY = p2dProxy.GetYPos();
+	currentX = positionProxy.GetXPos();
+	currentY = positionProxy.GetYPos();
 
 	traveledDist += sqrt(
 			pow((currentX - prevX), 2) + pow((currentY - prevY), 2));
-	prevX = p2dProxy.GetXPos();
-	prevY = p2dProxy.GetYPos();
+	prevX = positionProxy.GetXPos();
+	prevY = positionProxy.GetYPos();
 }
 
 vector<double> CalcHeuristics(int source) {
@@ -304,7 +307,7 @@ vector<double> CalcHeuristics(int source) {
 	cost[source] = 0;
 
 	for (int count = 0; count < points.size() - 1; count++) {
-		int u = minDistance(cost, sPathTreeSet);
+		int u = minDist(cost, sPathTreeSet);
 		sPathTreeSet[u] = true;
 
 		for (int v = 0; v < points.size(); v++) {
@@ -329,25 +332,25 @@ vector<Node*> Dijkstra() {
 	CalcTraveledDist();
 	double dist[points.size()];
 	int prev[points.size()];
-	bool sptSet[points.size()];
+	bool sPathTreeSet[points.size()];
 
 	for (int i = 0; i < points.size(); i++) {
 		dist[i] = numeric_limits<double>::max();
-		sptSet[i] = false;
+		sPathTreeSet[i] = false;
 		prev[i] = 0;
 	}
 
 	dist[0] = 0;
 
 	for (int count = 0; count < points.size() - 1; count++) {
-		int u = minDistance(dist, sptSet);
+		int u = minDist(dist, sPathTreeSet);
 
-		sptSet[u] = true;
+		sPathTreeSet[u] = true;
 
 		for (int v = 0; v < points.size(); v++) {
-			if (!sptSet[v] && distMat[u][v]
-					&& dist[u] != numeric_limits<double>::max()
-					&& dist[u] + distMat[u][v] < dist[v]) {
+			if (!sPathTreeSet[v] && distMat[u][v]
+			                                   && dist[u] != numeric_limits<double>::max()
+			                                   && dist[u] + distMat[u][v] < dist[v]) {
 				dist[v] = dist[u] + distMat[u][v];
 				prev[v] = u;
 			}
@@ -368,8 +371,6 @@ vector<Node*> Dijkstra() {
 			do {
 				j = prev[j];
 				stk.push(j);
-				//cout << "<-" << j;
-
 			} while (j != 0);
 
 			cout << endl;
@@ -389,80 +390,75 @@ vector<Node*> Dijkstra() {
 vector<Node*> AstarAlgo() {
 	CalcTraveledDist();
 
-	Node* node_start = points.at(0);
-	Node* node_goal = points.at(points.size() - 1);
+	Node* nodeStart = points.at(0);
+	Node* nodeGoal = points.at(points.size() - 1);
 
-	vector<Node*> open;
-	vector<Node*> closed;
+	vector<Node*> openList;
+	vector<Node*> closedList;
 
-	open.push_back(node_start);
+	openList.push_back(nodeStart);
 
-	node_start->Gn = 0;
+	nodeStart->Gn = 0;
 
-	while (!open.empty()) {
-		Node* node_current;
-		int min_index = 0;
-		double min_Fn = numeric_limits<double>::max();
+	while (!openList.empty()) {
+		Node* nodeCurrent;
+		int minIndex = 0;
+		double minFn = numeric_limits<double>::max();
 
-		for (int i = 0; i < open.size(); i++) {
-			Node* p = open.at(i);
-			if ((p->Gn + p->Hn) < min_Fn) {
-				min_Fn = p->Gn + p->Hn;
-				min_index = i;
+		for (int i = 0; i < openList.size(); i++) {
+			Node* p = openList.at(i);
+			if ((p->Gn + p->Hn) < minFn) {
+				minFn = p->Gn + p->Hn;
+				minIndex = i;
 			}
 		}
 
-		node_current = open.at(min_index);
-		open.erase(open.begin() + min_index);
+		nodeCurrent = openList.at(minIndex);
+		openList.erase(openList.begin() + minIndex);
 
-		if (node_current == node_goal) {
-			node_goal->parent = node_current->parent;
+		if (nodeCurrent == nodeGoal) {
+			nodeGoal->parent = nodeCurrent->parent;
 			break;
 		}
 
-		vector<Node*> successors = node_current->getSuccessors(points);
+		vector<Node*> successors = nodeCurrent->getSuccessors(points);
 
-		//For each successor nodes perform
 		for (int i = 0; i < successors.size(); i++) {
-			Node* node_successor = successors.at(i);
+			Node* nodeSuccessor = successors.at(i);
 
-			double successor_current_w = EuclidianDist(node_current,
-					node_successor);
-			double successor_current_cost = node_current->Gn
-					+ successor_current_w;
+			double successorCurrentDist = EuclidianDist(nodeCurrent,
+					nodeSuccessor);
+			double successorCurrentCost = nodeCurrent->Gn
+					+ successorCurrentDist;
 
-			int oFound = indexOf(open, node_successor);
-			int cFound = indexOf(closed, node_successor);
+			int openFound = indexOf(openList, nodeSuccessor);
+			int closedFound = indexOf(closedList, nodeSuccessor);
 
-			if (oFound > -1) {
-				if (node_successor->Gn <= successor_current_cost)
+			if (openFound > -1) {
+				if (nodeSuccessor->Gn <= successorCurrentCost)
 					continue;
-			} else if (cFound > -1) {
-				if (node_successor->Gn <= successor_current_cost)
+			} else if (closedFound > -1) {
+				if (nodeSuccessor->Gn <= successorCurrentCost)
 					continue;
 
-				open.push_back(node_successor);
-				int index = indexOf(closed, node_successor);
-				closed.erase(closed.begin() + index);
+				openList.push_back(nodeSuccessor);
+				int index = indexOf(closedList, nodeSuccessor);
+				closedList.erase(closedList.begin() + index);
 
 			} else {
-				//Add node_successor to the OPEN list
-				open.push_back(node_successor);
+				openList.push_back(nodeSuccessor);
 
 			}
-			//Set g(node_successor) = successor_current_cost
-			node_successor->Gn = successor_current_cost;
 
-			//Set the parent of node_successor to node_current
-			node_successor->parent = node_current;
+			nodeSuccessor->Gn = successorCurrentCost;
+			nodeSuccessor->parent = nodeCurrent;
 		}
 
-		//Add node_current to the CLOSED list
-		closed.push_back(node_current);
+		closedList.push_back(nodeCurrent);
 
 	}
 
-	Node* p = node_goal;
+	Node* p = nodeGoal;
 	stack<Node*> stack;
 	vector<Node*> path;
 
@@ -475,7 +471,6 @@ vector<Node*> AstarAlgo() {
 		Node* node = stack.top();
 		stack.pop();
 		path.push_back(node);
-		//cout << "(" << node->x << "," << node->y << ")";
 	}
 
 	return path;
@@ -487,79 +482,68 @@ vector<Node*> GreedyBFS() {
 
 	CalcTraveledDist();
 
-	//Take the start and goal node
-	Node* node_start = points.at(0);
-	Node* node_goal = points.at(points.size() - 1);
+	Node* nodeStart = points.at(0);
+	Node* nodeGoal = points.at(points.size() - 1);
 
-	//Main process starts
-	vector<Node*> open;
-	vector<Node*> closed;
+	vector<Node*> openList;
+	vector<Node*> closedList;
 
-	open.push_back(node_start);
+	openList.push_back(nodeStart);
 
-	while (!open.empty()) {
-		Node* node_current;
-		int min_index = 0;
-		double min_Fn = numeric_limits<double>::max();
+	while (!openList.empty()) {
+		Node* nodeCurrent;
+		int minIndex = 0;
+		double minFn = numeric_limits<double>::max();
 
-		for (int i = 0; i < open.size(); i++) {
-			Node* p = open.at(i);
-			if (p->Hn < min_Fn) {
-				min_Fn = p->Hn;
-				min_index = i;
+		for (int i = 0; i < openList.size(); i++) {
+			Node* p = openList.at(i);
+			if (p->Hn < minFn) {
+				minFn = p->Hn;
+				minIndex = i;
 			}
 		}
 
-		node_current = open.at(min_index);
-		open.erase(open.begin() + min_index);
+		nodeCurrent = openList.at(minIndex);
+		openList.erase(openList.begin() + minIndex);
 
-		if (node_current == node_goal) {
-			node_goal->parent = node_current->parent;
+		if (nodeCurrent == nodeGoal) {
+			nodeGoal->parent = nodeCurrent->parent;
 			break;
 		}
 
-		vector<Node*> successors = node_current->getSuccessors(points);
+		vector<Node*> successors = nodeCurrent->getSuccessors(points);
 
-		//For each successor nodes perform
 		for (int i = 0; i < successors.size(); i++) {
-			Node* node_successor = successors.at(i);
+			Node* nodeSuccessor = successors.at(i);
 
-			//double successor_current_w = EuclidianDist(node_current, node_successor);
+			double successor_current_heuristic = nodeCurrent->Hn;
 
-			double successor_current_heuristic = node_current->Hn;
+			int openFound = indexOf(openList, nodeSuccessor);
+			int closedFound = indexOf(closedList, nodeSuccessor);
 
-			int oFound = indexOf(open, node_successor);
-			int cFound = indexOf(closed, node_successor);
-
-			if (oFound > -1) {
-				if (node_successor->Hn <= successor_current_heuristic)
+			if (openFound > -1) {
+				if (nodeSuccessor->Hn <= successor_current_heuristic)
 					continue;
-			} else if (cFound > -1) {
-				if (node_successor->Hn <= successor_current_heuristic)
+			} else if (closedFound > -1) {
+				if (nodeSuccessor->Hn <= successor_current_heuristic)
 					continue;
 
-				open.push_back(node_successor);
-				int index = indexOf(closed, node_successor);
-				closed.erase(closed.begin() + index);
+				openList.push_back(nodeSuccessor);
+				int index = indexOf(closedList, nodeSuccessor);
+				closedList.erase(closedList.begin() + index);
 
 			} else {
-				//Add node_successor to the OPEN list
-				open.push_back(node_successor);
+				openList.push_back(nodeSuccessor);
 			}
-			//Set g(node_successor) = successor_current_cost
-
-			node_successor->Hn = successor_current_heuristic;
-
-			//Set the parent of node_successor to node_current
-			node_successor->parent = node_current;
+			nodeSuccessor->Hn = successor_current_heuristic;
+			nodeSuccessor->parent = nodeCurrent;
 		}
 
-		//Add node_current to the CLOSED list
-		closed.push_back(node_current);
+		closedList.push_back(nodeCurrent);
 
 	}
 
-	Node* p = node_goal;
+	Node* p = nodeGoal;
 	stack<Node*> stack;
 	vector<Node*> path;
 
@@ -581,82 +565,75 @@ vector<Node*> GreedyBFS() {
 vector<Node*> OCFAStar() {
 	CalcTraveledDist();
 
-	Node* node_start = points.at(0);
-	Node* node_goal = points.at(points.size() - 1);
+	Node* nodeStart = points.at(0);
+	Node* nodeGoal = points.at(points.size() - 1);
 
-	vector<Node*> open;
-	vector<Node*> closed;
+	vector<Node*> openList;
+	vector<Node*> closedList;
 
 	int w = 0;
 
-	open.push_back(node_start);
+	openList.push_back(nodeStart);
 
-	node_start->Gn = 0;
+	nodeStart->Gn = 0;
 
-	while (!open.empty()) {
-		Node* node_current;
-		int min_index = 0;
-		double min_Fn = numeric_limits<double>::max();
+	while (!openList.empty()) {
+		Node* nodeCurrent;
+		int minIndex = 0;
+		double minFn = numeric_limits<double>::max();
 
-		for (int i = 0; i < open.size(); i++) {
-			Node* p = open.at(i);
-			if (((w * p->Gn) + p->Hn) < min_Fn) {
-				min_Fn = (w * p->Gn) + p->Hn;
-				min_index = i;
+		for (int i = 0; i < openList.size(); i++) {
+			Node* p = openList.at(i);
+			if (((w * p->Gn) + p->Hn) < minFn) {
+				minFn = (w * p->Gn) + p->Hn;
+				minIndex = i;
 			}
 		}
 
-		node_current = open.at(min_index);
-		open.erase(open.begin() + min_index);
+		nodeCurrent = openList.at(minIndex);
+		openList.erase(openList.begin() + minIndex);
 
-		if (node_current == node_goal) {
-			node_goal->parent = node_current->parent;
+		if (nodeCurrent == nodeGoal) {
+			nodeGoal->parent = nodeCurrent->parent;
 			break;
 		}
 
-		vector<Node*> successors = node_current->getSuccessors(points);
+		vector<Node*> successors = nodeCurrent->getSuccessors(points);
 
-		//For each successor nodes perform
 		for (int i = 0; i < successors.size(); i++) {
-			Node* node_successor = successors.at(i);
+			Node* nodeSuccessor = successors.at(i);
 
-			double successor_current_w = EuclidianDist(node_current,
-					node_successor);
-			double successor_current_cost = node_current->Gn
-					+ successor_current_w;
+			double successorCurrentDist = EuclidianDist(nodeCurrent,
+					nodeSuccessor);
+			double successorCurrentCost = nodeCurrent->Gn
+					+ successorCurrentDist;
 
-			int oFound = indexOf(open, node_successor);
-			int cFound = indexOf(closed, node_successor);
+			int openFound = indexOf(openList, nodeSuccessor);
+			int closedFound = indexOf(closedList, nodeSuccessor);
 
-			if (oFound > -1) {
-				if (node_successor->Gn <= successor_current_cost)
+			if (openFound > -1) {
+				if (nodeSuccessor->Gn <= successorCurrentCost)
 					continue;
-			} else if (cFound > -1) {
-				if (node_successor->Gn <= successor_current_cost)
+			} else if (closedFound > -1) {
+				if (nodeSuccessor->Gn <= successorCurrentCost)
 					continue;
 
-				open.push_back(node_successor);
-				int index = indexOf(closed, node_successor);
-				closed.erase(closed.begin() + index);
+				openList.push_back(nodeSuccessor);
+				int index = indexOf(closedList, nodeSuccessor);
+				closedList.erase(closedList.begin() + index);
 
 			} else {
-				//Add node_successor to the OPEN list
-				open.push_back(node_successor);
+				openList.push_back(nodeSuccessor);
 
 			}
-			//Set g(node_successor) = successor_current_cost
-			node_successor->Gn = successor_current_cost;
-
-			//Set the parent of node_successor to node_current
-			node_successor->parent = node_current;
+			nodeSuccessor->Gn = successorCurrentCost;
+			nodeSuccessor->parent = nodeCurrent;
 		}
-
-		//Add node_current to the CLOSED list
-		closed.push_back(node_current);
+		closedList.push_back(nodeCurrent);
 
 	}
 
-	Node* p = node_goal;
+	Node* p = nodeGoal;
 	stack<Node*> stack;
 	vector<Node*> path;
 
@@ -669,7 +646,6 @@ vector<Node*> OCFAStar() {
 		Node* node = stack.top();
 		stack.pop();
 		path.push_back(node);
-		//cout << "(" << node->x << "," << node->y << ")";
 	}
 
 	return path;
@@ -681,16 +657,14 @@ void DynamicPlanning(Item *items) {
 	vector<Node*> waypoints;
 
 	points.clear();
-	//Generate and initialize all points
 	Initialization();
 
-	//Create grfaph and connect the edges
 	Graph *graph = new Graph();
 	graph->initGraph();
 	graph->ConnectAllNodes();
 	graph->AssignHeuristics();
 
-	Item *itemList = items;
+	Item *obstaclesList = items;
 
 	//waypoints = AstarAlgo();
 	//waypoints = Dijkstra();
@@ -705,48 +679,44 @@ void DynamicPlanning(Item *items) {
 	int j = 1;
 	int overflow = 0;
 	Node* p;
-	double startTime = GetTickCount();
+	double startTime = CountTck();
 
 	bool check = false;
 
 	while (true) {
-		double currentTime = GetTickCount() - startTime;
+		double currentTime = CountTck() - startTime;
 		robot.Read();
 
-		// Release dynamic obstacles
-		/*if( currentTime >= 3000 ) //3 seconds.
-		 {
-		 //do
-		 for(int i = 0; i < 4; i++)
-		 {
-		 double x = fRand(-6.00, 6.00);
-		 double y = fRand(-6.00, 6.00);
-		 //robot.Read();
-		 if(sqrt(pow((x-p2dProxy.GetXPos()),2) + pow((y-p2dProxy.GetYPos()), 2)) > 1)
-		 {
-		 simProxy.SetPose2d(itemList[i].name, x, y, 0);
-		 }
-		 else
-		 printf("imposing");
-		 }
-		 RefreshItemList(itemList, simProxy);
-		 //Reset the timer.
-		 startTime = GetTickCount();
-		 }*/
+		if( currentTime >= 3000 )
+		{
+			for(int i = 0; i < 4; i++)
+			{
+				double x = funcRand(-6.00, 6.00);
+				double y = funcRand(-6.00, 6.00);
+				//robot.Read();
+				if(sqrt(pow((x-positionProxy.GetXPos()),2) + pow((y-positionProxy.GetYPos()), 2)) > 1)
+				{
+					simulationProxy.SetPose2d(obstaclesList[i].name, x, y, 0);
+				}
+				else
+					printf("imposing");
+			}
+			LoadObstacles(obstaclesList);
 
-		//Main Process
+			startTime = CountTck();
+		}
+
 		if (i == 0) {
-			//j = 0;
 			p = waypoints.at(j);
-			p2dProxy.GoTo(p->x, p->y, 0);
+			positionProxy.GoTo(p->x, p->y, 0);
 			i++;
 		}
 
-		if ((isGoal(p->x, p->y, p2dProxy.GetXPos(), p2dProxy.GetYPos()))) {
+		if ((isGoal(p->x, p->y, positionProxy.GetXPos(), positionProxy.GetYPos()))) {
 			printf("Checkpoint--> (x: %lf y: %lf) completed... \n", p->x, p->y);
 
-			if (isGoal(nodeGoal->x, nodeGoal->y, p2dProxy.GetXPos(),
-					p2dProxy.GetYPos())) {
+			if (isGoal(nodeGoal->x, nodeGoal->y, positionProxy.GetXPos(),
+					positionProxy.GetYPos())) {
 				printf("\nGoal Reached\n");
 				break;
 			} else {
@@ -757,10 +727,8 @@ void DynamicPlanning(Item *items) {
 
 		double avoidDist = 1.5;
 
-		if ((sonarProxy[3] < avoidDist) || (sonarProxy[4] < avoidDist)) {
+		if ((snrProxy[3] < avoidDist) || (snrProxy[4] < avoidDist)) {
 			printf("\nObstacle detected\n");
-			//distMat[0][NO_OF_POINTS+1] = numeric_limits<double>::max();
-			//distMat[NO_OF_POINTS+1][0] = numeric_limits<double>::max();
 
 			int secondIndex = indexOf(points, waypoints[1]);
 
@@ -779,15 +747,14 @@ void DynamicPlanning(Item *items) {
 			printPath(waypoints);
 			i = 0;
 			j = 1;
-			//break;
 
-			if (isGoal(nodeGoal->x, nodeGoal->y, p2dProxy.GetXPos(),
-					p2dProxy.GetYPos())) {
+			if (isGoal(nodeGoal->x, nodeGoal->y, positionProxy.GetXPos(),
+					positionProxy.GetYPos())) {
 				break;
 			}
 
 			if (overflow > NO_OF_POINTS) {
-				DynamicPlanning(itemList);
+				DynamicPlanning(obstaclesList);
 			}
 
 			check = true;
@@ -795,72 +762,57 @@ void DynamicPlanning(Item *items) {
 			continue;
 		}
 
-		if (isGoal(nodeGoal->x, nodeGoal->y, p2dProxy.GetXPos(),
-				p2dProxy.GetYPos())) {
+		if (isGoal(nodeGoal->x, nodeGoal->y, positionProxy.GetXPos(),
+				positionProxy.GetYPos())) {
 			break;
 		}
 
 		double safeDist = 1.5;
-		if ((sonarProxy[0] > safeDist) && (sonarProxy[1] > safeDist)
-				&& (sonarProxy[2] > safeDist) && (sonarProxy[3] > safeDist)
-				&& (sonarProxy[4] > safeDist) && (sonarProxy[5] > safeDist)
-				&& (sonarProxy[6] > safeDist) && (sonarProxy[7] > safeDist)
-				&& (sonarProxy[8] > safeDist) && (sonarProxy[9] > safeDist)
-				&& (sonarProxy[10] > safeDist) && (sonarProxy[11] > safeDist)
-				&& (sonarProxy[12] > safeDist) && (sonarProxy[13] > safeDist)
-				&& (sonarProxy[14] > safeDist) && (sonarProxy[15] > safeDist)) {
+		if ((snrProxy[0] > safeDist) && (snrProxy[1] > safeDist)
+				&& (snrProxy[2] > safeDist) && (snrProxy[3] > safeDist)
+				&& (snrProxy[4] > safeDist) && (snrProxy[5] > safeDist)
+				&& (snrProxy[6] > safeDist) && (snrProxy[7] > safeDist)
+				&& (snrProxy[8] > safeDist) && (snrProxy[9] > safeDist)
+				&& (snrProxy[10] > safeDist) && (snrProxy[11] > safeDist)
+				&& (snrProxy[12] > safeDist) && (snrProxy[13] > safeDist)
+				&& (snrProxy[14] > safeDist) && (snrProxy[15] > safeDist)) {
 
-			if (isGoal(nodeGoal->x, nodeGoal->y, p2dProxy.GetXPos(),
-					p2dProxy.GetYPos())) {
+			if (isGoal(nodeGoal->x, nodeGoal->y, positionProxy.GetXPos(),
+					positionProxy.GetYPos())) {
 				break;
 			}
 
 			if (check == true)
-				check = false, DynamicPlanning(itemList);
+				check = false, DynamicPlanning(obstaclesList);
 
 		}
 
-		//DynamicPlanning(itemList, true);
 	}
-
-	/*if (!isGoal(nodeGoal->x, nodeGoal->y, p2dProxy.GetXPos(), p2dProxy.GetYPos()))
-	 {
-	 //distMat[0][NO_OF_POINTS+1] = numeric_limits<double>::max();
-	 //distMat[NO_OF_POINTS+1][0] = numeric_limits<double>::max();
-	 //DynamicPlanning(itemList, true);
-	 }*/
-
 }
 
 int main(int argc, char *argv[]) {
 	iter = 1;
-	double startTime = GetTickCount();
+	double startTime = CountTck();
 	clock_t tStart = clock();
 
 	srand(time(NULL));
-	//double init_x = fRand(-6.00, 6.00);
-	//double init_y = fRand(-6.00, 6.00);
-	//cout << "robot at: (" << init_x << "," << init_y << ")"<< endl;
+	simulationProxy.SetPose2d("iRobo", 6, -6, 120);
 
-	simProxy.SetPose2d("iRobo", 6, -6, 120);
-	//simProxy.SetPose2d("iRobo",-6 , -6, 0);
+	Item obstaclesList[8];
+	LoadObstacles(obstaclesList);
 
-	Item itemList[8];
-	RefreshItemList(itemList, simProxy);
-
-	//enable motors
-	p2dProxy.SetMotorEnable(1);
-	p2dProxy.RequestGeom();
-	sonarProxy.RequestGeom();
+	positionProxy.SetMotorEnable(1);
+	positionProxy.RequestGeom();
+	snrProxy.RequestGeom();
 
 	printf("\n");
 
-	prevX = p2dProxy.GetXPos();
-	prevY = p2dProxy.GetYPos();
+	prevX = positionProxy.GetXPos();
+	prevY = positionProxy.GetYPos();
 
-	DynamicPlanning(itemList);
+	DynamicPlanning(obstaclesList);
 
-	double currentTime = GetTickCount() - startTime;
+	double currentTime = CountTck() - startTime;
 
 	cout << "Time Taken: " << 2.5 * (currentTime / 1000) << endl;
 	cout << "Distance Traveled = " << traveledDist << endl;

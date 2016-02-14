@@ -29,7 +29,7 @@ pioneer2dx
 )
 
 #Obstacles
-define orange model
+define dynObs model
 (
 	# this is a picture of a black circle
 	bitmap "circle.png"
@@ -42,22 +42,22 @@ define black model
 	# this is a picture of a black circle
 	bitmap "rectangle.png"
 	size [.5 .5 .5]
-	color "black"
+	color "statObs"
 )
 
-orange(name "orange1" pose [-6 6 0 0])
-orange(name "orange2" pose [-6 6 0 0])
-orange(name "orange3" pose [-6 6 0 0])
-orange(name "orange4" pose [-6 6 0 0])
+dynObs(name "dynObs1" pose [-60 60 0 0])
+dynObs(name "dynObs2" pose [-60 60 0 0])
+dynObs(name "dynObs3" pose [-60 60 0 0])
+dynObs(name "dynObs4" pose [-60 60 0 0])
 
-black(name "black1" pose [0 0 0 0])
-black(name "black2" pose [-5 3 0 0])
-black(name "black3" pose [-5 -5 0 0])
-black(name "black4" pose [3 6 0 0])
-black(name "black5" pose [3 -4 0 0])
-black(name "black6" pose [3 3 0 0])
-black(name "black7" pose [-1.5 -3 0 0])
-black(name "black8" pose [-2 5 0 0])
-black(name "black9" pose [-2 2 0 0])
-black(name "black10" pose [7 -2 0 0])
-black(name "black10" pose [3 -1 0 0])
+statObs(name "statObs1" pose [0 0 0 0])
+statObs(name "statObs2" pose [-5 3 0 0])
+statObs(name "statObs3" pose [-5 -5 0 0])
+statObs(name "statObs4" pose [3 6 0 0])
+statObs(name "statObs5" pose [3 -4 0 0])
+statObs(name "statObs6" pose [3 3 0 0])
+statObs(name "statObs7" pose [-1.5 -3 0 0])
+statObs(name "statObs8" pose [-2 5 0 0])
+statObs(name "statObs9" pose [-2 2 0 0])
+statObs(name "statObs10" pose [7 -2 0 0])
+statObs(name "statObs11" pose [3 -1 0 0])
